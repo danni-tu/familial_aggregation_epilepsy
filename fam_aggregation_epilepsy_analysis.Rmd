@@ -1,0 +1,825 @@
+---
+title: "Familial aggregation of seizure outcomes in four familial epilepsy cohorts"
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+author: "Danni Tu and Quy Cao"
+date: '`r format(Sys.Date(), format = "%B %d, %Y")`'
+output: 
+  html_document:
+    code_folding: hide
+    theme: paper
+    toc: true
+    toc_depth: 3
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      results = 'asis')
+```
+
+This file documents and replicates the analyses from "Familial aggregation of seizure outcomes in four familial epilepsy cohorts" by Ellis, Tu, *et al.* (2023+; under review).
+
+```{r}
+# Packages
+library(brms) # Bayesian GLMM models
+library(lme4)
+library(geepack)
+library(data.table)
+library(pander)
+library(tidyverse)
+
+# Read in full data
+dat <- read_csv("epilepsy_merged_data.csv")
+
+# RMarkdown formatting 
+nl <- function(){
+  cat("  \n")
+  cat("  \n")
+}
+
+pt <- function(x){
+  pandoc.table(x, split.table = Inf)
+}
+
+# Save brms output to a subdirectory called BRMS
+# Set these to "always" when fitting a new model object, "never" when reading from BRMS
+if (!dir.exists("BRMS")) dir.create("BRMS")
+refit_percohort = "never"
+refit_allcohort = "never"
+```
+
+ The data frame `dat` contains the following columns:
+
+- Grouping variables
+  - **cohort**: categorical variable with values: efscu, epgp, epi4k, rep
+  - **fid**: family ID
+  - **iid**: person ID
+- Predictors
+  - **epitype**: categorical variable with values: Focal, GGE, Other
+  - **age**: numerical variable in years
+  - **age_onset**: numerical variable in years
+- Outcomes
+  - **remission**: binary variable with values 0 or 1
+  - **sz_count**: binary variable with values 0 or 1
+  - **tx_resp**: binary variable with values 0 or 1
+
+To assess if binary epilepsy outcomes (remission, number of seizures, treatment response) are significantly aggregated in families, we modeled between-family variation using a generalized linear mixed model (GLMM) framework, with age, age of epilepsy onset, and epitype as the fixed effects and family-specific random intercepts.
+
+Testing for significant aggregation of epilepsy outcomes is equivalent to testing whether the variance of the family-specific random intercept is zero in the GLMM (Zhang & Lin, 2008; Self & Liang, 1987). 
+
+## Frequentist GLMM
+
+We used a likelihood ratio (LR) test, since the distribution of the LR test statistic is straightforward even though the null hypothesis at the boundary of the parameter space (Self & Liang, 1987), and since the calculation of the likelihood function is readily available using existing R software packages. Additionally, we reported an effect size for the degree of familial aggregation when the LR test was significant: we used the intra-class correlation (ICC) of the familial clustering together with 95% confidence intervals obtained from a non-parametric bootstrap.
+
+## Bayesian GLMM
+
+Unfortunately, the frequentist (non-Bayesian) GLMM model implemented in the R package `lme4` does not converge when the point estimate of the variance components and/or intra-class correlation are slightly negative or close to 0 (Nielsen et al. 2021). This occurred for several subsets of our data, such as the EFSCU cohort with outcome = "remission." Therefore, we have also considered an alternative approach using a *Bayesian* GLMM, which is implemented in the `brms` R package (Burkner 2017). 
+
+In the Bayesian framework, a prior distribution is specified for the model parameters, such as the fixed effects coefficients and the variance components. Then, inference for these parameters is made on the basis of draws from the posterior distribution, which is derived using a Markov Chain Monte Carlo (MCMC) algorithm. Once we are able to draw from the posterior distribution of a parameter, the point estimate of that parameter is typically calculated as the mean of the posterior draws, and the 95% *credible interval* is the 2.5th and 97.5th percentile of these draws. In our analyses, we assume a flat prior for the fixed effects and a half Student's $t$ prior for the variance components (the default setting in `brms`).
+
+As we obtained data from four cohorts, we first performed this analysis by fitting a separate model within each cohort. We also considered a combined model across cohorts in a GLMM with age, age of epilepsy onset, and epitype as the fixed effects and family- and cohort-specific random intercepts. (Note that families are nested within cohorts.) The null hypothesis is that the variance of the family-specific intercept is equal to zero while the cohort-specific intercept is non-zero.
+
+# Part 1: Results for Each Cohort Separately
+
+Our model (clustered by `fid`) is the following generalized linear mixed model:
+
+`outcome ~ epitype +  age + age_onset + (1|fid)`.
+
+This model assumes a random intercept for each family. To test if familial aggregation is significant, we test the variance of this random intercept.
+
+```{r}
+# Fit a GLMM model for a given cohort
+fit_glmm_percohort <- function(dat, the_outcome, the_cohort){
+  
+  stopifnot(the_outcome %in% c("remission", "sz_count", "tx_resp"))
+  stopifnot(the_cohort %in% c("efscu", "epgp", "epi4k", "rep"))
+  
+  nl()
+  cat("#### Frequentist GLMM (lme4)")
+  nl()
+  
+  # For the selected outcome and cohort, filter to families larger than 1
+  dat2 = dat %>%
+    select(cohort, fid, iid, epitype, age, age_onset, !!sym(the_outcome)) %>%
+    filter(complete.cases(.),
+           cohort == the_cohort) %>%
+    group_by(fid) %>%
+    filter(n_distinct(iid) > 1) %>% ungroup %>%
+    mutate(fid = factor(as.character(fid)))
+  
+    if (nrow(dat2) == 0){
+    nl()
+    cat(paste0("There was no data for outcome = ", the_outcome, " in the ",
+                the_cohort, " cohort data."))
+    nl()
+    return(nl())
+  }
+  
+  # Model formulae
+  form_n = paste0(the_outcome, " ~ epitype + age + age_onset") # Null model
+  form = paste0(the_outcome, " ~ epitype + age + age_onset + (1|fid)") # GLMM model
+  
+  # Fit Null model
+  fit_null = glm(formula = as.formula(form_n),
+                 data = dat2,
+                 family = binomial)
+  
+  # Fit GLMM model with clustering by family
+  fit_glmm = lme4::glmer(formula = as.formula(form),
+                           data = dat2,
+                           family = binomial)
+  
+  # Likelihood ratio test
+  x = lme4:::anova.merMod(fit_glmm, fit_null)
+  
+  # Null loglik - using lme4:::loglik.merMod (see https://github.com/lme4/lme4/issues/375)
+  lrt_stat = as.numeric(-2*(logLik(fit_null) - logLik(fit_glmm)))
+  # From the chisq test
+  stopifnot(near(lrt_stat, x$Chisq[2]))
+  
+  # Naive p-value given the chi_sq(df = 1) null distribution
+  pval_naive = pchisq(q = lrt_stat, df = 1, lower.tail = FALSE) 
+  
+  # p-value given a 50:50 mixture of chisq(1) and point mass at 1: P[χ21 ≥ Tobs]/2,
+  # according to Self & Liang 1987
+  pval_SL = pchisq(q = lrt_stat, df = 1, lower.tail = FALSE)/2
+  
+  coefs_fixed = summary(fit_glmm)$coefficients %>%
+    as.data.frame %>%
+    rownames_to_column("Term") %>%
+    mutate(Sig = ifelse(`Pr(>|z|)` < 0.05, "*", ""))
+  
+  nl()
+  cat("##### Fixed Effects")
+  nl()
+  pt(coefs_fixed)
+  nl()
+  cat("##### Random Effects")
+  nl()
+  summary(fit_glmm)$varcor %>% as.data.frame %>%
+    pt()
+  nl()
+  
+  cat(paste0("The variance component test for familial clustering had p-value = ",
+             pval_SL," based on the asymptotic likelihood ratio test (Self & Liang 1987). A p-value < 0.05 corresponds to significant familial clustering. (Naive p-value = ", pval_naive, ")"))
+  nl()
+  return(fit_glmm)
+}
+
+fit_brms_percohort_inner <- function(dat, the_outcome, the_cohort){
+  stopifnot(the_outcome %in% c("remission", "sz_count", "tx_resp"))
+  stopifnot(the_cohort %in% c("efscu", "epgp", "epi4k", "rep"))
+  
+  # For the selected outcome and cohort, filter to families larger than 1
+  dat2 = dat %>%
+    select(cohort, fid, iid, epitype, age, age_onset, !!sym(the_outcome)) %>%
+    filter(complete.cases(.),
+           cohort == the_cohort) %>%
+    group_by(fid) %>%
+    filter(n_distinct(iid) > 1) %>% ungroup %>%
+    mutate(fid = factor(as.character(fid)))
+  
+  if (nrow(dat2) == 0){
+    return(NULL)
+  }
+  
+  # Model formulae
+  form = paste0(the_outcome, " ~ epitype + age + age_onset + (1|fid)") # GLMM model
+  
+  # Bayesian GLMM model with clustering by family
+  fit_glmm_brms = brms::brm(formula = as.formula(form),
+                            data = dat2,
+                            family = bernoulli,
+                            warmup = 1000, iter = 2000, chains = 4,
+                            # Increase to prevent divergent chains
+                            control = list(adapt_delta = 0.85),
+                            sample_prior = "yes",
+                            # Suppress error messages
+                            # silent = 2,
+                            # refresh = 0
+                            save_model = paste0("BRMS/", the_cohort, "/", the_outcome, "_full.RDS"),
+                            file = paste0("BRMS/", the_cohort, "/", the_outcome, "_full"),
+                            file_refit = refit_percohort)
+
+  
+  return(fit_glmm_brms = fit_glmm_brms)
+}
+
+# From a brms model, get the ICC. Slightly adapted from performance::icc()
+get_icc1 <- function(model){
+  random_effects = summary(model)$random
+  
+  # Point estimate of ICC using point estimate of sd(Intercept)
+  icc = (random_effects$fid$Estimate^2) / (random_effects$fid$Estimate^2 + pi^2/3)
+  
+  # 2.5th percentile
+  icc_2p5 = (random_effects$fid$`l-95% CI`^2) / (random_effects$fid$`l-95% CI`^2 + pi^2/3)
+  
+  # 97.5th percentile
+  icc_97p5 = (random_effects$fid$`u-95% CI`^2) / (random_effects$fid$`u-95% CI`^2 + pi^2/3)
+  
+  return(list(icc = icc,
+         icc_2p5 = icc_2p5,
+         icc_97p5 = icc_97p5,
+         icc_formatted = paste0(round(icc, 5), " (", round(icc_2p5, 5), ", ", round(icc_97p5, 5), ")")))
+}
+
+
+fit_brms_percohort  <- function(fit_glmm_brms_out){
+  nl()
+  cat("#### Bayesian GLMM (brms)")
+  nl()
+  
+  if (is.null(fit_glmm_brms_out)){
+    nl()
+    cat(paste0("There was no data for this outcome and this cohort."))
+    nl()
+    return(NULL)
+  }
+  fit_glmm_brms = fit_glmm_brms_out
+  
+  # Random effects
+  rand_fid = summary(fit_glmm_brms)$random$fid
+  
+  coefs_fixed = summary(fit_glmm_brms)$fixed %>%
+    as.data.frame %>%
+    rownames_to_column("Term") %>%
+    mutate(Sig = ifelse(0 > `l-95% CI` & 0 < `u-95% CI`, "", "*"))
+  
+  nl()
+  cat("##### Fixed Effects")
+  nl()
+  pt(coefs_fixed)
+  nl()
+  cat("##### Random Effects")
+  nl()
+  rand_fid %>% as.data.frame %>%
+    pt()
+  nl()
+  
+  cat(paste0("The standard deviation of the family random effect had estimate and 95% credible interval = ",
+             round(rand_fid$Estimate, 3), " (", round(rand_fid$`l-95% CI`, 3), ", ", round(rand_fid$`u-95% CI`, 3), "). Credible intervals that are further from 0 are stronger evidence for clustering by family."))
+  nl()
+  
+  # ICC
+  # var_intercept_fid = insight::get_variance_intercept(fit_glmm_brms)
+  # var_resid = insight::get_variance_residual(fit_glmm_brms)
+  # icc = var_intercept_fid / (var_resid + var_intercept_fid)
+  cat(paste0("The ICC estimate and 95% credible interval = ",
+             get_icc1(fit_glmm_brms)$icc_formatted, "."))
+  
+  
+  nl()
+  
+  nl()
+  cat("##### Bayesian Hypothesis Testing")
+  nl()
+  # Star = "*" --> Reject the hypothesis
+  hypothesis(x = fit_glmm_brms, hypothesis = "Intercept = 0", class = "sd", group = "fid")$hypothesis %>%
+    pt()
+  nl()
+  cat("Note: evidence ratios > 1 indicate more evidence for sd(Intercept) = 0 after seeing the data; evidence ratios < 1 indicate less evidence for sd(Intercept) = 0 after seeing the data. The evidence ratio is the ratio between the posterior density at that point divided by the prior density at that point.")
+  nl()
+}
+
+```
+
+
+## Outcome = Remission {.tabset}
+
+### EFSCU {.tabset}
+
+```{r}
+glmm_1 <- fit_glmm_percohort(dat, the_outcome = "remission", the_cohort = "efscu")
+```
+
+```{r results = 'hide'}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+
+### EPGP {.tabset}
+
+```{r}
+glmm_2 <- fit_glmm_percohort(dat, the_outcome = "remission", the_cohort = "epgp")
+```
+
+```{r results = 'hide'}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+### Epi4k {.tabset}
+
+```{r}
+glmm_3 <- fit_glmm_percohort(dat, the_outcome = "remission", the_cohort = "epi4k")
+```
+
+Since the variance component of familial clustering is significant, we can calculate the confidence interval of the ICC of the familial clustering using bootstrap.
+
+```{r}
+calc.icc <- function(y, n_RE = 1) {
+  if(n_RE == 1){
+    res <- performance::icc(y)
+    return(res$ICC_adjusted)
+  } else {
+  performance::icc(y, by_group = TRUE)
+  return(res$ICC[1]) # for family
+  }
+}
+
+# Bootstrap ICC
+if (!file.exists("boot_icc_glmm_by_cohort_Epi4k.rds")){
+  boot.icc <- bootMer(glmm_3, calc.icc, nsim=1000)
+  saveRDS(boot.icc , file = "boot_icc_glmm_by_cohort_Epi4k.rds")
+}
+
+boot.icc <- readRDS(file = "boot_icc_glmm_by_cohort_Epi4k.rds")
+
+nl()
+cat(paste0("The ICC (non-Bayesian GLMM) is ", performance::icc(glmm_3)$ICC_adjusted,
+           " and its 95% confidence interval is (", 
+           paste0(round(quantile(boot.icc$t, c(0.025, 0.975), na.rm = TRUE),3), collapse = ","), ")."))
+nl()
+```
+
+
+```{r results = 'hide'}
+glmm_3_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission", the_cohort = "epi4k")
+```
+
+```{r}
+fit_brms_percohort(glmm_3_brms)
+```
+
+### Replication {.tabset}
+
+
+```{r}
+glmm_4 <- fit_glmm_percohort(dat, the_outcome = "remission", the_cohort = "rep")
+```
+
+```{r results = 'hide'}
+glmm_4_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission", the_cohort = "rep")
+```
+
+```{r}
+fit_brms_percohort(glmm_4_brms)
+```
+
+
+## Outcome = Seizure Count {.tabset}
+
+### EFSCU {.tabset}
+
+```{r}
+glmm_1 <- fit_glmm_percohort(dat, the_outcome = "sz_count", the_cohort = "efscu")
+```
+
+```{r results = 'hide'}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "sz_count", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+### EPGP {.tabset}
+
+```{r}
+glmm_2 <- fit_glmm_percohort(dat, the_outcome = "sz_count", the_cohort = "epgp")
+```
+
+```{r}
+# Bootstrap ICC
+if (!file.exists("boot_icc_glmm_by_cohort_EPGP_sz_count.rds")){
+  boot.icc <- bootMer(glmm_2, calc.icc, nsim=1000)
+  saveRDS(boot.icc , file = "boot_icc_glmm_by_cohort_Epi4k.rds")
+}
+
+boot.icc <- readRDS(file = "boot_icc_glmm_by_cohort_EPGP_sz_count.rds")
+
+nl()
+cat(paste0("The ICC (non-Bayesian GLMM) is ", performance::icc(glmm_2)$ICC_adjusted,
+           " and its 95% confidence interval is (", 
+           paste0(round(quantile(boot.icc$t, c(0.025, 0.975), na.rm = TRUE),3), collapse = ","), ")."))
+nl()
+```
+
+```{r results = 'hide'}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "sz_count", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+### Epi4k {.tabset}
+
+```{r}
+glmm_3 <-fit_glmm_percohort(dat, the_outcome = "sz_count", the_cohort = "epi4k")
+```
+
+
+```{r}
+# Bootstrap ICC
+if (!file.exists("boot_icc_glmm_by_cohort_Epi4k_sz_count.rds")){
+  boot.icc <- bootMer(glmm_3, calc.icc, nsim=1000)
+  saveRDS(boot.icc , file = "boot_icc_glmm_by_cohort_Epi4k_sz_count.rds")
+}
+
+boot.icc <- readRDS(file = "boot_icc_glmm_by_cohort_Epi4k_sz_count.rds")
+
+nl()
+cat(paste0("The ICC (non-Bayesian GLMM) is ", performance::icc(glmm_3)$ICC_adjusted,
+           " and its 95% confidence interval is (", 
+           paste0(round(quantile(boot.icc$t, c(0.025, 0.975), na.rm = TRUE),3), collapse = ","), ")."))
+nl()
+```
+
+
+
+```{r results = 'hide'}
+glmm_3_brms <- fit_brms_percohort_inner(dat, the_outcome = "sz_count", the_cohort = "epi4k")
+```
+
+```{r}
+fit_brms_percohort(glmm_3_brms)
+```
+
+### Replication {.tabset}
+
+```{r}
+glmm_4 <-fit_glmm_percohort(dat, the_outcome = "sz_count", the_cohort = "rep")
+```
+
+```{r results = 'hide'}
+glmm_4_brms <- fit_brms_percohort_inner(dat, the_outcome = "sz_count", the_cohort = "rep")
+```
+
+```{r}
+fit_brms_percohort(glmm_4_brms)
+```
+
+## Outcome = Treatment Response {.tabset}
+
+### EFSCU {.tabset}
+
+```{r}
+glmm_1 <- fit_glmm_percohort(dat, the_outcome = "tx_resp", the_cohort = "efscu")
+```
+
+```{r results = 'hide'}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "tx_resp", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+
+### EPGP {.tabset}
+
+
+```{r}
+glmm_2 <- fit_glmm_percohort(dat, the_outcome = "tx_resp", the_cohort = "epgp")
+
+# Bootstrap ICC
+if (!file.exists("boot_icc_glmm_by_cohort_EPGP_tx_resp.rds")){
+  boot.icc <- bootMer(glmm_2, calc.icc, nsim=1000)
+  saveRDS(boot.icc , file = "boot_icc_glmm_by_cohort_EPGP_tx_resp.rds")
+}
+
+boot.icc <- readRDS(file = "boot_icc_glmm_by_cohort_EPGP_tx_resp.rds")
+
+nl()
+cat(paste0("The ICC (non-Bayesian GLMM) is ", performance::icc(glmm_2)$ICC_adjusted,
+           " and its 95% confidence interval is (", 
+           paste0(round(quantile(boot.icc$t, c(0.025, 0.975), na.rm = TRUE),3), collapse = ","), ")."))
+nl()
+```
+
+
+```{r results = 'hide'}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "tx_resp", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+### Epi4k {.tabset}
+
+```{r}
+glmm_3 <- fit_glmm_percohort(dat, the_outcome = "tx_resp", the_cohort = "epi4k")
+```
+
+```{r results = 'hide'}
+glmm_3_brms <- fit_brms_percohort_inner(dat, the_outcome = "tx_resp", the_cohort = "epi4k")
+```
+
+```{r}
+fit_brms_percohort(glmm_3_brms)
+```
+
+### Replication {.tabset}
+
+```{r}
+glmm_4 <- fit_glmm_percohort(dat, the_outcome = "tx_resp", the_cohort = "rep")
+```
+
+```{r results = 'hide'}
+glmm_4_brms <- fit_brms_percohort_inner(dat, the_outcome = "tx_resp", the_cohort = "rep")
+```
+
+```{r}
+fit_brms_percohort(glmm_4_brms)
+```
+
+# Part 2: Analysis of All Cohorts
+
+In part 2, we combine data across cohorts and we model the outcome (clustered by `fid` and `cohort`) using the GLMM:
+
+`outcome ~ epitype +  age + age_onset + (1|fid) + (1|cohort)`.
+
+This model assumes a random intercept for each family and cohort (families are nested within cohorts). To test if familial aggregation is significant, we test the null hypothesis that the random intercept *for family* has variance 0 using a likelihood ratio test.
+
+
+```{r}
+fit_glmm_allcohorts <- function(dat, the_outcome){
+  
+  stopifnot(the_outcome %in% c("remission", "sz_count", "tx_resp"))
+  
+  nl()
+  cat("### GLMM (lme4)")
+  nl()
+  
+  # For the selected outcome and cohort, filter to families larger than 1
+  dat2 = dat %>%
+    select(cohort, fid, iid, epitype, age, age_onset, !!sym(the_outcome)) %>%
+    filter(complete.cases(.)) %>%
+    group_by(fid) %>%
+    filter(n_distinct(iid) > 1) %>% ungroup %>%
+    mutate(fid = factor(as.character(fid)))
+  
+  if (nrow(dat2) == 0){
+    nl()
+    cat(paste0("There was no data for outcome = ", the_outcome))
+    nl()
+    return(nl())
+  }
+  
+  # Formulae
+  form_n = paste0(the_outcome, " ~ epitype + age + age_onset + (1|cohort)") # Null model
+  form = paste0(the_outcome, " ~ epitype + age + age_onset + (1|cohort/fid)") # GLMM model
+  
+  # Null model
+  fit_null = lme4::glmer(formula = as.formula(form_n),
+                 data = dat2,
+                 family = binomial)
+  
+  # GLMM model with clustering by family
+  fit_glmm = lme4::glmer(formula = as.formula(form),
+                           data = dat2,
+                           family = binomial)
+  
+  # Likelihood ratio test
+  x = lme4:::anova.merMod(fit_glmm, fit_null)
+  
+  # Null loglik - using lme4:::loglik.merMod (see https://github.com/lme4/lme4/issues/375)
+  lrt_stat = as.numeric(-2*(logLik(fit_null) - logLik(fit_glmm)))
+  # From the chisq test
+  stopifnot(near(lrt_stat, x$Chisq[2]))
+  
+  # Naive p-value given the chi_sq(df = 1) null distribution
+  pval_naive = pchisq(q = lrt_stat, df = 1, lower.tail = FALSE) 
+  
+  # p-value given a 50:50 mixture of chisq(1) and chisq(2),
+  # according to Self & Liang 1987
+  pval_SL = pchisq(q = lrt_stat, df = 1, lower.tail = FALSE)/2 +
+    pchisq(q = lrt_stat, df = 2, lower.tail = FALSE)/2
+  
+  coefs_fixed = summary(fit_glmm)$coefficients %>%
+    as.data.frame %>%
+    rownames_to_column("Term") %>%
+    mutate(Sig = ifelse(`Pr(>|z|)` < 0.05, "*", ""))
+  
+  nl()
+  cat("##### Fixed Effects")
+  nl()
+  
+  pandoc.table(coefs_fixed)
+  
+  nl()
+  
+  cat("##### Random Effects")
+  nl()
+  summary(fit_glmm)$varcor %>% as.data.frame %>%
+    pandoc.table()
+  nl()
+  
+  cat(paste0("The variance component test for familial clustering had p-value = ",
+             pval_SL," based on the asymptotic likelihood ratio test (Self & Liang 1987). A p-value < 0.05 corresponds to significant familial clustering. (Naive p-value = ", pval_naive, ")."))
+  
+  return(fit_glmm)
+}
+
+# From a brms model, get the ICC. Slightly adapted from performance::icc()
+get_icc2 <- function(model){
+  re = summary(model)$random
+  
+  # Cohort effects, given the family random effect
+  icc_cohort = (re$cohort$Estimate^2) / (re$cohort$Estimate^2 + re$`cohort:fid`$Estimate^2 + pi^2/3)
+  
+  # 2.5th percentile
+  icc_cohort_2p5 = (re$cohort$`l-95% CI`^2) / (re$cohort$`l-95% CI`^2 + re$`cohort:fid`$Estimate^2  + pi^2/3)
+  
+  # 97.5th percentile
+  icc_cohort_97p5 = (re$cohort$`u-95% CI`^2) / (re$cohort$`u-95% CI`^2 + re$`cohort:fid`$Estimate^2  + pi^2/3)
+  
+  # Family effects, given the cohort random effect
+  icc_fam = (re$`cohort:fid`$Estimate^2) / (re$`cohort:fid`$Estimate^2 + re$cohort$Estimate^2 + pi^2/3)
+  
+  # 2.5th percentile
+  icc_fam_2p5 = (re$`cohort:fid`$`l-95% CI`^2) / (re$`cohort:fid`$`l-95% CI`^2 + re$cohort$Estimate^2 + pi^2/3)
+  
+  # 97.5th percentile
+  icc_fam_97p5 = (re$`cohort:fid`$`u-95% CI`^2) / (re$`cohort:fid`$`l-95% CI`^2 + re$cohort$Estimate^2 + pi^2/3)
+  
+  return(list(icc_cohort = icc_cohort,
+         icc_cohort_2p5 = icc_cohort_2p5,
+         icc_cohort_97p5 = icc_cohort_97p5,
+         icc_cohort_formatted = paste0(round(icc_cohort, 5), " (", round(icc_cohort_2p5, 5), ", ", round(icc_cohort_97p5, 5), ")"),
+         icc_fam = icc_fam,
+         icc_fam_2p5 = icc_fam_2p5,
+         icc_fam_97p5 = icc_fam_97p5,
+         icc_fam_formatted = paste0(round(icc_fam, 5), " (", round(icc_fam_2p5, 5), ", ", round(icc_fam_97p5, 5), ")")))
+}
+
+
+fit_brms_allcohort_inner <- function(dat, the_outcome){
+  stopifnot(the_outcome %in% c("remission", "sz_count", "tx_resp"))
+  
+  # For the selected outcome and cohort, filter to families larger than 1
+  dat2 = dat %>%
+    select(cohort, fid, iid, epitype, age, age_onset, !!sym(the_outcome)) %>%
+    filter(complete.cases(.)) %>%
+    group_by(fid) %>%
+    filter(n_distinct(iid) > 1) %>% ungroup %>%
+    mutate(fid = factor(as.character(fid)))
+  
+  if (nrow(dat2) == 0){
+    nl()
+    cat(paste0("There was no data for outcome = ", the_outcome))
+    nl()
+    return(nl())
+  }
+  
+  # Formulae
+  form = paste0(the_outcome, " ~ epitype + age + age_onset + (1|cohort/fid)") # GLMM model
+  
+  # GLMM model with clustering by family
+  fit_brms = brms::brm(formula = as.formula(form),
+                       data = dat2,
+                       family = bernoulli,
+                       warmup = 1000, iter = 2000, chains = 4,
+                       # Increase to prevent divergent chains
+                       control = list(adapt_delta = 0.95),
+                       sample_prior = "yes",
+                       # Suppress error messages
+                       # silent = 2,
+                       # refresh = 0,
+                       save_model = paste0("BRMS/", the_outcome, ".RDS"),
+                       file = paste0("BRMS/all_cohorts/", the_outcome, "_full"),
+                       file_refit = refit_allcohort) 
+  
+  return(fit_brms)
+}
+
+fit_brms_allcohort <- function(fit_brms_allcohort_obj){
+  
+  nl()
+  cat("### Bayesian GLMM (brms)")
+  nl()
+  
+  fit_brms = fit_brms_allcohort_obj
+  
+  # Standard deviation of the random effect
+  # mean (estimate), standard deviation of the posterior distribution, and two-sided 95% credible intervals
+  rand_fid = summary(fit_brms)$random
+  
+  coefs_fixed = summary(fit_brms)$fixed %>%
+    as.data.frame %>%
+    rownames_to_column("Term") %>%
+    mutate(Sig = ifelse(0 > `l-95% CI` & 0 < `u-95% CI`, "", "*"))
+  
+  nl()
+  cat("##### Fixed Effects")
+  nl()
+  pt(coefs_fixed)
+  nl()
+  cat("##### Random Effects - Cohort")
+  nl()
+  rand_fid$cohort %>% as.data.frame %>%
+    pt()
+  nl()
+  cat(paste0("The standard deviation of the cohort random effect had estimate and 95% credible interval = ",
+             round(rand_fid$cohort$Estimate, 3), " (", round(rand_fid$cohort$`l-95% CI`, 3), ", ", round(rand_fid$cohort$`u-95% CI`, 3), "). Credible intervals that are further from 0 are stronger evidence for clustering by cohort."))
+  nl()
+  nl()
+    # Star = "*" --> Reject the hypothesis
+  hypothesis(x = fit_brms, hypothesis = "Intercept = 0", class = "sd", group = "cohort")$hypothesis %>% pt()
+    nl()
+  cat("Note: evidence ratios > 1 indicate more evidence for sd(Intercept - cohort) = 0 after seeing the data; evidence ratios < 1 indicate less evidence for sd(Intercept - cohort) = 0 after seeing the data. The evidence ratio is the ratio between the posterior density at that point divided by the prior density at that point.")
+  nl()
+  
+
+  cat("##### Random Effects - Family")
+  nl()
+  rand_fid$`cohort:fid` %>% as.data.frame %>%
+    pt()
+  nl()
+  
+  nl()
+  cat(paste0("The standard deviation of the family random effect had estimate and 95% credible interval = ",
+             round(rand_fid$`cohort:fid`$Estimate, 3), " (", round(rand_fid$`cohort:fid`$`l-95% CI`, 3), ", ", round(rand_fid$`cohort:fid`$`u-95% CI`, 3), "). Credible intervals that are further from 0 are stronger evidence for clustering by family."))
+  nl()
+  
+  nl()
+  # Star = "*" --> Reject the hypothesis
+  hypothesis(x = fit_brms, hypothesis = "Intercept = 0", class = "sd", group = "cohort:fid")$hypothesis %>% pt()
+  nl()
+  cat("Note: evidence ratios > 1 indicate more evidence for sd(Intercept - family) = 0 after seeing the data; evidence ratios < 1 indicate less evidence for sd(Intercept - family) = 0 after seeing the data. The evidence ratio is the ratio between the posterior density at that point divided by the prior density at that point.")
+  nl()
+ 
+  cat(paste0("The ICC estimate and 95% credible intervals were ",
+             get_icc2(fit_brms)$icc_cohort_formatted, " for cohort and ", 
+             get_icc2(fit_brms)$icc_fam_formatted, " for family."))
+  nl()
+  
+}
+```
+
+## Outcome = Remission {.tabset}
+
+```{r}
+glmm_1 <- fit_glmm_allcohorts(dat, the_outcome = "remission")
+```
+
+```{r results = 'hide', cache = FALSE}
+glmm_1_brms <- fit_brms_allcohort_inner(dat, the_outcome = "remission")
+```
+
+```{r}
+fit_brms_allcohort(glmm_1_brms)
+```
+
+## Outcome = Seizure Count {.tabset}
+
+```{r}
+glmm_2 <- fit_glmm_allcohorts(dat, the_outcome = "sz_count")
+```
+
+```{r results = 'hide', cache = FALSE}
+glmm_2_brms <- fit_brms_allcohort_inner(dat, the_outcome = "sz_count")
+```
+
+```{r}
+fit_brms_allcohort(glmm_2_brms)
+```
+
+## Outcome = Treatment Response {.tabset}
+
+```{r}
+glmm_3 <- fit_glmm_allcohorts(dat, the_outcome = "tx_resp")
+```
+
+```{r results = 'hide', cache = FALSE}
+glmm_3_brms <- fit_brms_allcohort_inner(dat, the_outcome = "tx_resp")
+```
+
+```{r}
+fit_brms_allcohort(glmm_3_brms)
+```
+
+# References
+
+Bürkner, Paul-Christian. 2017. “Brms : An R Package for Bayesian Multilevel Models Using Stan.” Journal of Statistical Software 80 (1). https://doi.org/10.18637/jss.v080.i01.
+
+Nielsen, Natalie M., Wouter A.C. Smink, and Jean Paul Fox. 2021. “Small and Negative Correlations among Clustered Observations: Limitations of the Linear Mixed Effects Model.” Behaviormetrika 48 (1): 51–77. https://doi.org/10.1007/s41237-020-00130-8.
+
+Self, S. G., & Liang, K.-Y. (1987). Asymptotic Properties of Maximum Likelihood Estimators and Likelihood Ratio Tests Under Nonstandard Conditions. Journal of the American Statistical Association, 82(398), 605. https://doi.org/10.2307/2289471
+
+Zhang, D., & Lin, X. (2008). Variance Component Testing in Generalized Linear Mixed Models for Longitudinal/Clustered Data and other Related Topics (pp. 19–36). https://doi.org/10.1007/978-0-387-76721-5_2
+
