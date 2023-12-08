@@ -667,8 +667,8 @@ get_icc2 <- function(model){
          icc_fam_formatted = paste0(round(icc_fam, 5), " (", round(icc_fam_2p5, 5), ", ", round(icc_fam_97p5, 5), ")")))
 }
 
-
-fit_brms_allcohort_inner <- function(dat, the_outcome){
+# prior_b, prior_sd: priors for the fixed effects and grouping variables
+fit_brms_allcohort_inner <- function(dat, the_outcome, prior_b = NULL, prior_sd = NULL){
   stopifnot(the_outcome %in% c("remission", "sz_count", "tx_resp"))
   
   # For the selected outcome and cohort, filter to families larger than 1
@@ -689,21 +689,43 @@ fit_brms_allcohort_inner <- function(dat, the_outcome){
   # Formulae
   form = paste0(the_outcome, " ~ epitype + age + age_onset + (1|cohort/fid)") # GLMM model
   
+  # Set the priors for the fixed effects and grouping variable
+  if (is.null(prior_b) & is.null(prior_sd)){
+    the_prior <- NULL
+    the_fname = paste0("BRMS/all_cohorts/", the_outcome, "_full")
+  } else if (is.null(prior_b) & (!is.null(prior_sd))) {
+    the_prior <- set_prior(prior = prior_sd, class = "sd", group = "cohort:fid")
+    prior_str = paste0("sd-", gsub("[[:punct:]]", "", prior_sd))
+    the_fname = paste0("BRMS/all_cohorts/", the_outcome, "_full_", prior_str)
+  } else if (is.null(prior_sd) & (!is.null(prior_b))) {
+    the_prior <- set_prior(prior = prior_b, class = "b")
+    prior_str = paste0("b-", gsub("[[:punct:]]", "", prior_b))
+    the_fname = paste0("BRMS/all_cohorts/", the_outcome, "_full_", prior_str)
+  } else {
+    the_prior <- c(set_prior(prior = prior_b, class = "b"),
+      set_prior(prior = prior_sd, class = "sd", group = "cohort:fid"))
+    prior_str = paste0("b-", gsub("[[:punct:]]", "", prior_b), "_",
+                       "sd-", gsub("[[:punct:]]", "", prior_sd))
+    the_fname = paste0("BRMS/all_cohorts/", the_outcome, "_full_", prior_str)
+  }
+  
   # GLMM model with clustering by family
-  fit_brms = brms::brm(formula = as.formula(form),
+    fit_brms = brms::brm(formula = as.formula(form),
                        data = dat2,
                        family = bernoulli,
                        warmup = 1000, iter = 2000, chains = 4,
                        # Increase to prevent divergent chains
                        control = list(adapt_delta = 0.95),
                        sample_prior = "yes",
+                       # Set the priors for the fixed effects and grouping variable
+                       prior = the_prior,
                        # Suppress error messages
                        # silent = 2,
                        # refresh = 0,
                        save_model = paste0("BRMS/", the_outcome, ".RDS"),
-                       file = paste0("BRMS/all_cohorts/", the_outcome, "_full"),
-                       file_refit = refit_allcohort) 
-  
+                       file = the_fname,
+                       file_refit = refit_allcohort)
+ 
   return(fit_brms)
 }
 
@@ -811,6 +833,109 @@ glmm_3_brms <- fit_brms_allcohort_inner(dat, the_outcome = "tx_resp")
 
 ```{r}
 fit_brms_allcohort(glmm_3_brms)
+```
+
+
+# Appendix 1: Sensitivity Analyses (All Cohorts Combined)
+
+In `brms` default prior for the Bayesian GLMM models are a flat prior for the fixed effects, and a half Student's $t$ prior for the variance components. In this sensitivity analysis, the prior for the variance component is `cauchy(0,1)` instead of the default `student_t(3, 0, 2.5)`.
+
+## Outcome = Remission {.tabset}
+
+```{r results = 'hide', cache = FALSE}
+glmm_1_brms_s1 <- fit_brms_allcohort_inner(dat, the_outcome = "remission", prior_b = NULL, prior_sd = "cauchy(0,1)")
+```
+
+```{r}
+fit_brms_allcohort(glmm_1_brms_s1)
+```
+
+## Outcome = Seizure Count {.tabset}
+
+```{r results = 'hide', cache = FALSE}
+glmm_2_brms_s1 <- fit_brms_allcohort_inner(dat, the_outcome = "sz_count", prior_b = NULL, prior_sd = "cauchy(0,1)")
+```
+
+```{r}
+fit_brms_allcohort(glmm_2_brms_s1)
+```
+
+## Outcome = Treatment Response {.tabset}
+
+```{r results = 'hide', cache = FALSE}
+glmm_3_brms_s1 <- fit_brms_allcohort_inner(dat, the_outcome = "tx_resp", prior_b = NULL, prior_sd = "cauchy(0,1)")
+```
+
+```{r}
+fit_brms_allcohort(glmm_3_brms_s1)
+```
+
+# Appendix 2: Sensitivity Analyses (All Cohorts Combined)
+
+In `brms` default prior for the Bayesian GLMM models are a flat prior for the fixed effects, and a half Student's $t$ prior for the variance components. In this sensitivity analysis, the prior for the variance component is `normal(0,1)` instead of the default `student_t(3, 0, 2.5)`.
+
+## Outcome = Remission {.tabset}
+
+```{r results = 'hide', cache = FALSE}
+glmm_1_brms_s2 <- fit_brms_allcohort_inner(dat, the_outcome = "remission", prior_b = NULL, prior_sd = "normal(0,1)")
+```
+
+```{r}
+fit_brms_allcohort(glmm_1_brms_s2)
+```
+
+## Outcome = Seizure Count {.tabset}
+
+```{r results = 'hide', cache = FALSE}
+glmm_2_brms_s2 <- fit_brms_allcohort_inner(dat, the_outcome = "sz_count", prior_b = NULL, prior_sd = "normal(0,1)")
+```
+
+```{r}
+fit_brms_allcohort(glmm_2_brms_s2)
+```
+
+## Outcome = Treatment Response {.tabset}
+
+```{r results = 'hide', cache = FALSE}
+glmm_3_brms_s2 <- fit_brms_allcohort_inner(dat, the_outcome = "tx_resp", prior_b = NULL, prior_sd = "normal(0,1)")
+```
+
+```{r}
+fit_brms_allcohort(glmm_3_brms_s2)
+```
+
+# Appendix 3: Sensitivity Analyses (All Cohorts Combined)
+
+In `brms` default prior for the Bayesian GLMM models are a flat prior for the fixed effects, and a half Student's $t$ prior for the variance components. In this sensitivity analysis, the prior for the fixed effects are `normal(0,1)` instead of the default flat prior.
+
+## Outcome = Remission {.tabset}
+
+```{r results = 'hide', cache = FALSE}
+glmm_1_brms_s3 <- fit_brms_allcohort_inner(dat, the_outcome = "remission", prior_b = "normal(0,1)", prior_sd = NULL)
+```
+
+```{r}
+fit_brms_allcohort(glmm_1_brms_s3)
+```
+
+## Outcome = Seizure Count {.tabset}
+
+```{r results = 'hide', cache = FALSE}
+glmm_2_brms_s3 <- fit_brms_allcohort_inner(dat, the_outcome = "sz_count", prior_b = "normal(0,1)", prior_sd = NULL)
+```
+
+```{r}
+fit_brms_allcohort(glmm_2_brms_s3)
+```
+
+## Outcome = Treatment Response {.tabset}
+
+```{r results = 'hide', cache = FALSE}
+glmm_3_brms_s3 <- fit_brms_allcohort_inner(dat, the_outcome = "tx_resp", prior_b = "normal(0,1)", prior_sd = NULL)
+```
+
+```{r}
+fit_brms_allcohort(glmm_3_brms_s3)
 ```
 
 # References

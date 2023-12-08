@@ -11,7 +11,7 @@
 
 <meta name="author" content="Danni Tu and Quy Cao" />
 
-<meta name="date" content="2023-06-21" />
+<meta name="date" content="2023-12-08" />
 
 <title>Familial aggregation of seizure outcomes in four familial epilepsy cohorts</title>
 
@@ -1604,7 +1604,7 @@ border-radius: 0px;
 <h1 class="title toc-ignore">Familial aggregation of seizure outcomes in
 four familial epilepsy cohorts</h1>
 <h4 class="author">Danni Tu and Quy Cao</h4>
-<h4 class="date">June 21, 2023</h4>
+<h4 class="date">December 08, 2023</h4>
 
 </div>
 
@@ -4669,8 +4669,8 @@ get_icc2 &lt;- function(model){
          icc_fam_formatted = paste0(round(icc_fam, 5), &quot; (&quot;, round(icc_fam_2p5, 5), &quot;, &quot;, round(icc_fam_97p5, 5), &quot;)&quot;)))
 }
 
-
-fit_brms_allcohort_inner &lt;- function(dat, the_outcome){
+# prior_b, prior_sd: priors for the fixed effects and grouping variables
+fit_brms_allcohort_inner &lt;- function(dat, the_outcome, prior_b = NULL, prior_sd = NULL){
   stopifnot(the_outcome %in% c(&quot;remission&quot;, &quot;sz_count&quot;, &quot;tx_resp&quot;))
   
   # For the selected outcome and cohort, filter to families larger than 1
@@ -4691,21 +4691,43 @@ fit_brms_allcohort_inner &lt;- function(dat, the_outcome){
   # Formulae
   form = paste0(the_outcome, &quot; ~ epitype + age + age_onset + (1|cohort/fid)&quot;) # GLMM model
   
+  # Set the priors for the fixed effects and grouping variable
+  if (is.null(prior_b) &amp; is.null(prior_sd)){
+    the_prior &lt;- NULL
+    the_fname = paste0(&quot;BRMS/all_cohorts/&quot;, the_outcome, &quot;_full&quot;)
+  } else if (is.null(prior_b) &amp; (!is.null(prior_sd))) {
+    the_prior &lt;- set_prior(prior = prior_sd, class = &quot;sd&quot;, group = &quot;cohort:fid&quot;)
+    prior_str = paste0(&quot;sd-&quot;, gsub(&quot;[[:punct:]]&quot;, &quot;&quot;, prior_sd))
+    the_fname = paste0(&quot;BRMS/all_cohorts/&quot;, the_outcome, &quot;_full_&quot;, prior_str)
+  } else if (is.null(prior_sd) &amp; (!is.null(prior_b))) {
+    the_prior &lt;- set_prior(prior = prior_b, class = &quot;b&quot;)
+    prior_str = paste0(&quot;b-&quot;, gsub(&quot;[[:punct:]]&quot;, &quot;&quot;, prior_b))
+    the_fname = paste0(&quot;BRMS/all_cohorts/&quot;, the_outcome, &quot;_full_&quot;, prior_str)
+  } else {
+    the_prior &lt;- c(set_prior(prior = prior_b, class = &quot;b&quot;),
+      set_prior(prior = prior_sd, class = &quot;sd&quot;, group = &quot;cohort:fid&quot;))
+    prior_str = paste0(&quot;b-&quot;, gsub(&quot;[[:punct:]]&quot;, &quot;&quot;, prior_b), &quot;_&quot;,
+                       &quot;sd-&quot;, gsub(&quot;[[:punct:]]&quot;, &quot;&quot;, prior_sd))
+    the_fname = paste0(&quot;BRMS/all_cohorts/&quot;, the_outcome, &quot;_full_&quot;, prior_str)
+  }
+  
   # GLMM model with clustering by family
-  fit_brms = brms::brm(formula = as.formula(form),
+    fit_brms = brms::brm(formula = as.formula(form),
                        data = dat2,
                        family = bernoulli,
                        warmup = 1000, iter = 2000, chains = 4,
                        # Increase to prevent divergent chains
                        control = list(adapt_delta = 0.95),
                        sample_prior = &quot;yes&quot;,
+                       # Set the priors for the fixed effects and grouping variable
+                       prior = the_prior,
                        # Suppress error messages
                        # silent = 2,
                        # refresh = 0,
                        save_model = paste0(&quot;BRMS/&quot;, the_outcome, &quot;.RDS&quot;),
-                       file = paste0(&quot;BRMS/all_cohorts/&quot;, the_outcome, &quot;_full&quot;),
-                       file_refit = refit_allcohort) 
-  
+                       file = the_fname,
+                       file_refit = refit_allcohort)
+ 
   return(fit_brms)
 }
 
@@ -5884,6 +5906,2387 @@ evidence ratio is the ratio between the posterior density at that point
 divided by the prior density at that point.</p>
 <p>The ICC estimate and 95% credible intervals were 0.35775 (0.03106,
 0.82361) for cohort and 0.23377 (0.15156, 0.41194) for family.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="appendix-1-sensitivity-analyses-all-cohorts-combined" class="section level1">
+<h1>Appendix 1: Sensitivity Analyses (All Cohorts Combined)</h1>
+<p>In <code>brms</code> default prior for the Bayesian GLMM models are a
+flat prior for the fixed effects, and a half Student’s <span class="math inline">\(t\)</span> prior for the variance components. In
+this sensitivity analysis, the prior for the variance component is
+<code>cauchy(0,1)</code> instead of the default
+<code>student_t(3, 0, 2.5)</code>.</p>
+<div id="outcome-remission-2" class="section level2 tabset">
+<h2 class="tabset">Outcome = Remission</h2>
+<pre class="r"><code>glmm_1_brms_s1 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;remission&quot;, prior_b = NULL, prior_sd = &quot;cauchy(0,1)&quot;)</code></pre>
+<pre class="r"><code>fit_brms_allcohort(glmm_1_brms_s1)</code></pre>
+<div id="bayesian-glmm-brms-15" class="section level3">
+<h3>Bayesian GLMM (brms)</h3>
+<div id="fixed-effects-24" class="section level5">
+<h5>Fixed Effects</h5>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Term</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+<th align="center">Sig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Intercept</td>
+<td align="center">-1.797</td>
+<td align="center">0.7277</td>
+<td align="center">-3.193</td>
+<td align="center">-0.2338</td>
+<td align="center">1.001</td>
+<td align="center">2226</td>
+<td align="center">2440</td>
+<td align="center">*</td>
+</tr>
+<tr class="even">
+<td align="center">epitypeGGE</td>
+<td align="center">0.2175</td>
+<td align="center">0.1125</td>
+<td align="center">-0.00206</td>
+<td align="center">0.4498</td>
+<td align="center">1</td>
+<td align="center">7980</td>
+<td align="center">3316</td>
+<td align="center"></td>
+</tr>
+<tr class="odd">
+<td align="center">epitypeOther</td>
+<td align="center">0.9546</td>
+<td align="center">0.1807</td>
+<td align="center">0.5991</td>
+<td align="center">1.317</td>
+<td align="center">1.004</td>
+<td align="center">7034</td>
+<td align="center">3102</td>
+<td align="center">*</td>
+</tr>
+<tr class="even">
+<td align="center">age</td>
+<td align="center">0.04616</td>
+<td align="center">0.003769</td>
+<td align="center">0.03903</td>
+<td align="center">0.05356</td>
+<td align="center">1.001</td>
+<td align="center">3325</td>
+<td align="center">3458</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">age_onset</td>
+<td align="center">-0.03899</td>
+<td align="center">0.00585</td>
+<td align="center">-0.05024</td>
+<td align="center">-0.02765</td>
+<td align="center">1.001</td>
+<td align="center">6698</td>
+<td align="center">2966</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="random-effects---cohort-3" class="section level5">
+<h5>Random Effects - Cohort</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="7%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">1.405</td>
+<td align="center">0.7289</td>
+<td align="center">0.5795</td>
+<td align="center">3.343</td>
+<td align="center">1</td>
+<td align="center">2230</td>
+<td align="center">2374</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the cohort random effect had estimate and
+95% credible interval = 1.405 (0.58, 3.343). Credible intervals that are
+further from 0 are stronger evidence for clustering by cohort.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">1.405</td>
+<td align="center">0.7289</td>
+<td align="center">0.5795</td>
+<td align="center">3.343</td>
+<td align="center">1.545e-05</td>
+<td align="center">1.545e-05</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- cohort) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - cohort) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+</div>
+<div id="random-effects---family-3" class="section level5">
+<h5>Random Effects - Family</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">0.5764</td>
+<td align="center">0.1454</td>
+<td align="center">0.2538</td>
+<td align="center">0.8382</td>
+<td align="center">1.009</td>
+<td align="center">617.6</td>
+<td align="center">564.3</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the family random effect had estimate and
+95% credible interval = 0.576 (0.254, 0.838). Credible intervals that
+are further from 0 are stronger evidence for clustering by family.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">0.5764</td>
+<td align="center">0.1454</td>
+<td align="center">0.2538</td>
+<td align="center">0.8382</td>
+<td align="center">0.05802</td>
+<td align="center">0.05484</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- family) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - family) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+<p>The ICC estimate and 95% credible intervals were 0.3526 (0.08485,
+0.75524) for cohort and 0.05938 (0.01209, 0.13188) for family.</p>
+</div>
+</div>
+</div>
+<div id="outcome-seizure-count-2" class="section level2 tabset">
+<h2 class="tabset">Outcome = Seizure Count</h2>
+<pre class="r"><code>glmm_2_brms_s1 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;sz_count&quot;, prior_b = NULL, prior_sd = &quot;cauchy(0,1)&quot;)</code></pre>
+<pre class="r"><code>fit_brms_allcohort(glmm_2_brms_s1)</code></pre>
+<div id="bayesian-glmm-brms-16" class="section level3">
+<h3>Bayesian GLMM (brms)</h3>
+<div id="fixed-effects-25" class="section level5">
+<h5>Fixed Effects</h5>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Term</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+<th align="center">Sig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Intercept</td>
+<td align="center">-0.5616</td>
+<td align="center">0.418</td>
+<td align="center">-1.376</td>
+<td align="center">0.3724</td>
+<td align="center">1.001</td>
+<td align="center">1725</td>
+<td align="center">1198</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">epitypeGGE</td>
+<td align="center">0.06336</td>
+<td align="center">0.1351</td>
+<td align="center">-0.2028</td>
+<td align="center">0.3264</td>
+<td align="center">1.001</td>
+<td align="center">3505</td>
+<td align="center">2893</td>
+<td align="center"></td>
+</tr>
+<tr class="odd">
+<td align="center">epitypeOther</td>
+<td align="center">0.3023</td>
+<td align="center">0.2106</td>
+<td align="center">-0.1056</td>
+<td align="center">0.7133</td>
+<td align="center">1</td>
+<td align="center">4284</td>
+<td align="center">2438</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">age</td>
+<td align="center">-0.0374</td>
+<td align="center">0.004338</td>
+<td align="center">-0.046</td>
+<td align="center">-0.029</td>
+<td align="center">1.002</td>
+<td align="center">3743</td>
+<td align="center">2949</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">age_onset</td>
+<td align="center">0.06742</td>
+<td align="center">0.007703</td>
+<td align="center">0.05238</td>
+<td align="center">0.08296</td>
+<td align="center">1.001</td>
+<td align="center">3505</td>
+<td align="center">2836</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="random-effects---cohort-4" class="section level5">
+<h5>Random Effects - Cohort</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">0.6347</td>
+<td align="center">0.5751</td>
+<td align="center">0.09886</td>
+<td align="center">2.274</td>
+<td align="center">1.002</td>
+<td align="center">984.6</td>
+<td align="center">859.6</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the cohort random effect had estimate and
+95% credible interval = 0.635 (0.099, 2.274). Credible intervals that
+are further from 0 are stronger evidence for clustering by cohort.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">0.6347</td>
+<td align="center">0.5751</td>
+<td align="center">0.09886</td>
+<td align="center">2.274</td>
+<td align="center">1.059</td>
+<td align="center">0.5144</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- cohort) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - cohort) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+</div>
+<div id="random-effects---family-4" class="section level5">
+<h5>Random Effects - Family</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">0.9111</td>
+<td align="center">0.1279</td>
+<td align="center">0.6524</td>
+<td align="center">1.15</td>
+<td align="center">1.003</td>
+<td align="center">888.9</td>
+<td align="center">1023</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the family random effect had estimate and
+95% credible interval = 0.911 (0.652, 1.15). Credible intervals that are
+further from 0 are stronger evidence for clustering by family.</p>
+<table style="width:100%;">
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="13%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">0.9111</td>
+<td align="center">0.1279</td>
+<td align="center">0.6524</td>
+<td align="center">1.15</td>
+<td align="center">-1.895e-17</td>
+<td align="center">-1.895e-17</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- family) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - family) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+<p>The ICC estimate and 95% credible intervals were 0.08907 (0.00237,
+0.55659) for cohort and 0.18353 (0.10334, 0.32136) for family.</p>
+</div>
+</div>
+</div>
+<div id="outcome-treatment-response-2" class="section level2 tabset">
+<h2 class="tabset">Outcome = Treatment Response</h2>
+<pre class="r"><code>glmm_3_brms_s1 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;tx_resp&quot;, prior_b = NULL, prior_sd = &quot;cauchy(0,1)&quot;)</code></pre>
+<pre class="r"><code>fit_brms_allcohort(glmm_3_brms_s1)</code></pre>
+<div id="bayesian-glmm-brms-17" class="section level3">
+<h3>Bayesian GLMM (brms)</h3>
+<div id="fixed-effects-26" class="section level5">
+<h5>Fixed Effects</h5>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Term</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+<th align="center">Sig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Intercept</td>
+<td align="center">-0.4871</td>
+<td align="center">1.133</td>
+<td align="center">-2.876</td>
+<td align="center">1.971</td>
+<td align="center">1.004</td>
+<td align="center">1575</td>
+<td align="center">1814</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">epitypeGGE</td>
+<td align="center">0.08219</td>
+<td align="center">0.1838</td>
+<td align="center">-0.2849</td>
+<td align="center">0.439</td>
+<td align="center">1.002</td>
+<td align="center">3427</td>
+<td align="center">3267</td>
+<td align="center"></td>
+</tr>
+<tr class="odd">
+<td align="center">epitypeOther</td>
+<td align="center">0.4313</td>
+<td align="center">0.345</td>
+<td align="center">-0.2211</td>
+<td align="center">1.111</td>
+<td align="center">1.001</td>
+<td align="center">2954</td>
+<td align="center">3114</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">age</td>
+<td align="center">0.04189</td>
+<td align="center">0.005888</td>
+<td align="center">0.03065</td>
+<td align="center">0.0537</td>
+<td align="center">1.002</td>
+<td align="center">2968</td>
+<td align="center">2968</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">age_onset</td>
+<td align="center">-0.04684</td>
+<td align="center">0.01064</td>
+<td align="center">-0.06805</td>
+<td align="center">-0.02629</td>
+<td align="center">1.002</td>
+<td align="center">2833</td>
+<td align="center">2733</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="random-effects---cohort-5" class="section level5">
+<h5>Random Effects - Cohort</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">1.785</td>
+<td align="center">1.463</td>
+<td align="center">0.4246</td>
+<td align="center">5.899</td>
+<td align="center">1.007</td>
+<td align="center">538.6</td>
+<td align="center">196.5</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the cohort random effect had estimate and
+95% credible interval = 1.785 (0.425, 5.899). Credible intervals that
+are further from 0 are stronger evidence for clustering by cohort.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">1.785</td>
+<td align="center">1.463</td>
+<td align="center">0.4246</td>
+<td align="center">5.899</td>
+<td align="center">0.07645</td>
+<td align="center">0.07102</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- cohort) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - cohort) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+</div>
+<div id="random-effects---family-5" class="section level5">
+<h5>Random Effects - Family</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">1.341</td>
+<td align="center">0.1724</td>
+<td align="center">1.016</td>
+<td align="center">1.696</td>
+<td align="center">1.006</td>
+<td align="center">1078</td>
+<td align="center">1571</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the family random effect had estimate and
+95% credible interval = 1.341 (1.016, 1.696). Credible intervals that
+are further from 0 are stronger evidence for clustering by family.</p>
+<table style="width:100%;">
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="13%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">1.341</td>
+<td align="center">0.1724</td>
+<td align="center">1.016</td>
+<td align="center">1.696</td>
+<td align="center">-1.883e-28</td>
+<td align="center">-1.883e-28</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- family) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - family) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+<p>The ICC estimate and 95% credible intervals were 0.38508 (0.03421,
+0.87242) for cohort and 0.21735 (0.1374, 0.38326) for family.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="appendix-2-sensitivity-analyses-all-cohorts-combined" class="section level1">
+<h1>Appendix 2: Sensitivity Analyses (All Cohorts Combined)</h1>
+<p>In <code>brms</code> default prior for the Bayesian GLMM models are a
+flat prior for the fixed effects, and a half Student’s <span class="math inline">\(t\)</span> prior for the variance components. In
+this sensitivity analysis, the prior for the variance component is
+<code>normal(0,1)</code> instead of the default
+<code>student_t(3, 0, 2.5)</code>.</p>
+<div id="outcome-remission-3" class="section level2 tabset">
+<h2 class="tabset">Outcome = Remission</h2>
+<pre class="r"><code>glmm_1_brms_s2 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;remission&quot;, prior_b = NULL, prior_sd = &quot;normal(0,1)&quot;)</code></pre>
+<pre class="r"><code>fit_brms_allcohort(glmm_1_brms_s2)</code></pre>
+<div id="bayesian-glmm-brms-18" class="section level3">
+<h3>Bayesian GLMM (brms)</h3>
+<div id="fixed-effects-27" class="section level5">
+<h5>Fixed Effects</h5>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="9%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Term</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+<th align="center">Sig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Intercept</td>
+<td align="center">-1.798</td>
+<td align="center">0.7678</td>
+<td align="center">-3.366</td>
+<td align="center">-0.2287</td>
+<td align="center">1.004</td>
+<td align="center">1370</td>
+<td align="center">1781</td>
+<td align="center">*</td>
+</tr>
+<tr class="even">
+<td align="center">epitypeGGE</td>
+<td align="center">0.22</td>
+<td align="center">0.1101</td>
+<td align="center">0.001412</td>
+<td align="center">0.4403</td>
+<td align="center">0.9995</td>
+<td align="center">6582</td>
+<td align="center">3201</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">epitypeOther</td>
+<td align="center">0.9517</td>
+<td align="center">0.1749</td>
+<td align="center">0.6258</td>
+<td align="center">1.307</td>
+<td align="center">0.9997</td>
+<td align="center">6458</td>
+<td align="center">2818</td>
+<td align="center">*</td>
+</tr>
+<tr class="even">
+<td align="center">age</td>
+<td align="center">0.04621</td>
+<td align="center">0.003805</td>
+<td align="center">0.03884</td>
+<td align="center">0.05401</td>
+<td align="center">1.001</td>
+<td align="center">2432</td>
+<td align="center">2818</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">age_onset</td>
+<td align="center">-0.03895</td>
+<td align="center">0.005904</td>
+<td align="center">-0.05079</td>
+<td align="center">-0.02746</td>
+<td align="center">1</td>
+<td align="center">5854</td>
+<td align="center">3322</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="random-effects---cohort-6" class="section level5">
+<h5>Random Effects - Cohort</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">1.461</td>
+<td align="center">0.8571</td>
+<td align="center">0.5765</td>
+<td align="center">3.649</td>
+<td align="center">1.003</td>
+<td align="center">1546</td>
+<td align="center">1422</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the cohort random effect had estimate and
+95% credible interval = 1.461 (0.576, 3.649). Credible intervals that
+are further from 0 are stronger evidence for clustering by cohort.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">1.461</td>
+<td align="center">0.8571</td>
+<td align="center">0.5765</td>
+<td align="center">3.649</td>
+<td align="center">7.388e-05</td>
+<td align="center">7.388e-05</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- cohort) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - cohort) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+</div>
+<div id="random-effects---family-6" class="section level5">
+<h5>Random Effects - Family</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">0.5739</td>
+<td align="center">0.1508</td>
+<td align="center">0.2266</td>
+<td align="center">0.8308</td>
+<td align="center">1.006</td>
+<td align="center">420.9</td>
+<td align="center">374.5</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the family random effect had estimate and
+95% credible interval = 0.574 (0.227, 0.831). Credible intervals that
+are further from 0 are stronger evidence for clustering by family.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">0.5739</td>
+<td align="center">0.1508</td>
+<td align="center">0.2266</td>
+<td align="center">0.8308</td>
+<td align="center">0.1276</td>
+<td align="center">0.1131</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- family) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - family) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+<p>The ICC estimate and 95% credible intervals were 0.37099 (0.0841,
+0.7863) for cohort and 0.05725 (0.00938, 0.12605) for family.</p>
+</div>
+</div>
+</div>
+<div id="outcome-seizure-count-3" class="section level2 tabset">
+<h2 class="tabset">Outcome = Seizure Count</h2>
+<pre class="r"><code>glmm_2_brms_s2 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;sz_count&quot;, prior_b = NULL, prior_sd = &quot;normal(0,1)&quot;)</code></pre>
+<pre class="r"><code>fit_brms_allcohort(glmm_2_brms_s2)</code></pre>
+<div id="bayesian-glmm-brms-19" class="section level3">
+<h3>Bayesian GLMM (brms)</h3>
+<div id="fixed-effects-28" class="section level5">
+<h5>Fixed Effects</h5>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Term</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+<th align="center">Sig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Intercept</td>
+<td align="center">-0.5612</td>
+<td align="center">0.4448</td>
+<td align="center">-1.434</td>
+<td align="center">0.4957</td>
+<td align="center">1.004</td>
+<td align="center">1894</td>
+<td align="center">1395</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">epitypeGGE</td>
+<td align="center">0.06241</td>
+<td align="center">0.1345</td>
+<td align="center">-0.2036</td>
+<td align="center">0.326</td>
+<td align="center">1</td>
+<td align="center">4830</td>
+<td align="center">2706</td>
+<td align="center"></td>
+</tr>
+<tr class="odd">
+<td align="center">epitypeOther</td>
+<td align="center">0.3004</td>
+<td align="center">0.2082</td>
+<td align="center">-0.09634</td>
+<td align="center">0.7144</td>
+<td align="center">1.002</td>
+<td align="center">4859</td>
+<td align="center">3118</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">age</td>
+<td align="center">-0.0373</td>
+<td align="center">0.004342</td>
+<td align="center">-0.04613</td>
+<td align="center">-0.02903</td>
+<td align="center">1.001</td>
+<td align="center">2787</td>
+<td align="center">3100</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">age_onset</td>
+<td align="center">0.06725</td>
+<td align="center">0.00759</td>
+<td align="center">0.05279</td>
+<td align="center">0.08293</td>
+<td align="center">1.001</td>
+<td align="center">4139</td>
+<td align="center">2924</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="random-effects---cohort-7" class="section level5">
+<h5>Random Effects - Cohort</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">0.6614</td>
+<td align="center">0.583</td>
+<td align="center">0.1138</td>
+<td align="center">2.417</td>
+<td align="center">1.005</td>
+<td align="center">1086</td>
+<td align="center">785.1</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the cohort random effect had estimate and
+95% credible interval = 0.661 (0.114, 2.417). Credible intervals that
+are further from 0 are stronger evidence for clustering by cohort.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">0.6614</td>
+<td align="center">0.583</td>
+<td align="center">0.1138</td>
+<td align="center">2.417</td>
+<td align="center">0.8108</td>
+<td align="center">0.4478</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- cohort) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - cohort) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+</div>
+<div id="random-effects---family-7" class="section level5">
+<h5>Random Effects - Family</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">0.9119</td>
+<td align="center">0.1256</td>
+<td align="center">0.6589</td>
+<td align="center">1.156</td>
+<td align="center">1.003</td>
+<td align="center">1005</td>
+<td align="center">1820</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the family random effect had estimate and
+95% credible interval = 0.912 (0.659, 1.156). Credible intervals that
+are further from 0 are stronger evidence for clustering by family.</p>
+<table style="width:100%;">
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="13%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">0.9119</td>
+<td align="center">0.1256</td>
+<td align="center">0.6589</td>
+<td align="center">1.156</td>
+<td align="center">-1.799e-20</td>
+<td align="center">-1.799e-20</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- family) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - family) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+<p>The ICC estimate and 95% credible intervals were 0.09595 (0.00313,
+0.58634) for cohort and 0.18242 (0.10434, 0.32132) for family.</p>
+</div>
+</div>
+</div>
+<div id="outcome-treatment-response-3" class="section level2 tabset">
+<h2 class="tabset">Outcome = Treatment Response</h2>
+<pre class="r"><code>glmm_3_brms_s2 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;tx_resp&quot;, prior_b = NULL, prior_sd = &quot;normal(0,1)&quot;)</code></pre>
+<pre class="r"><code>fit_brms_allcohort(glmm_3_brms_s2)</code></pre>
+<div id="bayesian-glmm-brms-20" class="section level3">
+<h3>Bayesian GLMM (brms)</h3>
+<div id="fixed-effects-29" class="section level5">
+<h5>Fixed Effects</h5>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Term</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+<th align="center">Sig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Intercept</td>
+<td align="center">-0.3558</td>
+<td align="center">1.271</td>
+<td align="center">-2.86</td>
+<td align="center">2.663</td>
+<td align="center">1.023</td>
+<td align="center">153.2</td>
+<td align="center">44.22</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">epitypeGGE</td>
+<td align="center">0.08209</td>
+<td align="center">0.1905</td>
+<td align="center">-0.2964</td>
+<td align="center">0.4364</td>
+<td align="center">1.003</td>
+<td align="center">1855</td>
+<td align="center">2112</td>
+<td align="center"></td>
+</tr>
+<tr class="odd">
+<td align="center">epitypeOther</td>
+<td align="center">0.4307</td>
+<td align="center">0.3418</td>
+<td align="center">-0.2441</td>
+<td align="center">1.088</td>
+<td align="center">1</td>
+<td align="center">1765</td>
+<td align="center">3014</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">age</td>
+<td align="center">0.04159</td>
+<td align="center">0.006014</td>
+<td align="center">0.03022</td>
+<td align="center">0.05343</td>
+<td align="center">1.004</td>
+<td align="center">950.6</td>
+<td align="center">1820</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">age_onset</td>
+<td align="center">-0.04687</td>
+<td align="center">0.01037</td>
+<td align="center">-0.06777</td>
+<td align="center">-0.0272</td>
+<td align="center">1.002</td>
+<td align="center">2537</td>
+<td align="center">2758</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="random-effects---cohort-8" class="section level5">
+<h5>Random Effects - Cohort</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="7%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">1.874</td>
+<td align="center">1.467</td>
+<td align="center">0.4183</td>
+<td align="center">6.667</td>
+<td align="center">1.02</td>
+<td align="center">307.2</td>
+<td align="center">33.71</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the cohort random effect had estimate and
+95% credible interval = 1.874 (0.418, 6.667). Credible intervals that
+are further from 0 are stronger evidence for clustering by cohort.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">1.874</td>
+<td align="center">1.467</td>
+<td align="center">0.4183</td>
+<td align="center">6.667</td>
+<td align="center">0.08703</td>
+<td align="center">0.08006</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- cohort) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - cohort) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+</div>
+<div id="random-effects---family-8" class="section level5">
+<h5>Random Effects - Family</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">1.334</td>
+<td align="center">0.1707</td>
+<td align="center">1.01</td>
+<td align="center">1.679</td>
+<td align="center">1.006</td>
+<td align="center">858.8</td>
+<td align="center">1709</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the family random effect had estimate and
+95% credible interval = 1.334 (1.01, 1.679). Credible intervals that are
+further from 0 are stronger evidence for clustering by family.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">1.334</td>
+<td align="center">0.1707</td>
+<td align="center">1.01</td>
+<td align="center">1.679</td>
+<td align="center">1.704e-16</td>
+<td align="center">1.704e-16</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- family) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - family) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+<p>The ICC estimate and 95% credible intervals were 0.4092 (0.03335,
+0.89762) for cohort and 0.20748 (0.13041, 0.36036) for family.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="appendix-3-sensitivity-analyses-all-cohorts-combined" class="section level1">
+<h1>Appendix 3: Sensitivity Analyses (All Cohorts Combined)</h1>
+<p>In <code>brms</code> default prior for the Bayesian GLMM models are a
+flat prior for the fixed effects, and a half Student’s <span class="math inline">\(t\)</span> prior for the variance components. In
+this sensitivity analysis, the prior for the fixed effects are
+<code>normal(0,1)</code> instead of the default flat prior.</p>
+<div id="outcome-remission-4" class="section level2 tabset">
+<h2 class="tabset">Outcome = Remission</h2>
+<pre class="r"><code>glmm_1_brms_s3 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;remission&quot;, prior_b = &quot;normal(0,1)&quot;, prior_sd = NULL)</code></pre>
+<pre class="r"><code>fit_brms_allcohort(glmm_1_brms_s3)</code></pre>
+<div id="bayesian-glmm-brms-21" class="section level3">
+<h3>Bayesian GLMM (brms)</h3>
+<div id="fixed-effects-30" class="section level5">
+<h5>Fixed Effects</h5>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="11%" />
+<col width="12%" />
+<col width="12%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Term</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+<th align="center">Sig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Intercept</td>
+<td align="center">-1.802</td>
+<td align="center">0.7351</td>
+<td align="center">-3.302</td>
+<td align="center">-0.3056</td>
+<td align="center">1.002</td>
+<td align="center">1768</td>
+<td align="center">1991</td>
+<td align="center">*</td>
+</tr>
+<tr class="even">
+<td align="center">epitypeGGE</td>
+<td align="center">0.2093</td>
+<td align="center">0.1105</td>
+<td align="center">-0.004084</td>
+<td align="center">0.4234</td>
+<td align="center">1</td>
+<td align="center">6629</td>
+<td align="center">3136</td>
+<td align="center"></td>
+</tr>
+<tr class="odd">
+<td align="center">epitypeOther</td>
+<td align="center">0.9237</td>
+<td align="center">0.1766</td>
+<td align="center">0.578</td>
+<td align="center">1.272</td>
+<td align="center">1</td>
+<td align="center">7096</td>
+<td align="center">3164</td>
+<td align="center">*</td>
+</tr>
+<tr class="even">
+<td align="center">age</td>
+<td align="center">0.04616</td>
+<td align="center">0.003773</td>
+<td align="center">0.0385</td>
+<td align="center">0.0538</td>
+<td align="center">1.001</td>
+<td align="center">2717</td>
+<td align="center">3461</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">age_onset</td>
+<td align="center">-0.03896</td>
+<td align="center">0.005841</td>
+<td align="center">-0.0504</td>
+<td align="center">-0.02767</td>
+<td align="center">1</td>
+<td align="center">6011</td>
+<td align="center">3328</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="random-effects---cohort-9" class="section level5">
+<h5>Random Effects - Cohort</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">1.42</td>
+<td align="center">0.7608</td>
+<td align="center">0.5597</td>
+<td align="center">3.424</td>
+<td align="center">1.003</td>
+<td align="center">1740</td>
+<td align="center">2272</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the cohort random effect had estimate and
+95% credible interval = 1.42 (0.56, 3.424). Credible intervals that are
+further from 0 are stronger evidence for clustering by cohort.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">1.42</td>
+<td align="center">0.7608</td>
+<td align="center">0.5597</td>
+<td align="center">3.424</td>
+<td align="center">8.895e-05</td>
+<td align="center">8.895e-05</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- cohort) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - cohort) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+</div>
+<div id="random-effects---family-9" class="section level5">
+<h5>Random Effects - Family</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">0.5785</td>
+<td align="center">0.146</td>
+<td align="center">0.2458</td>
+<td align="center">0.8311</td>
+<td align="center">1.007</td>
+<td align="center">490.7</td>
+<td align="center">418</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the family random effect had estimate and
+95% credible interval = 0.578 (0.246, 0.831). Credible intervals that
+are further from 0 are stronger evidence for clustering by family.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">0.5785</td>
+<td align="center">0.146</td>
+<td align="center">0.2458</td>
+<td align="center">0.8311</td>
+<td align="center">0.04222</td>
+<td align="center">0.04051</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- family) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - family) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+<p>The ICC estimate and 95% credible intervals were 0.35731 (0.07955,
+0.7638) for cohort and 0.05934 (0.01126, 0.12873) for family.</p>
+</div>
+</div>
+</div>
+<div id="outcome-seizure-count-4" class="section level2 tabset">
+<h2 class="tabset">Outcome = Seizure Count</h2>
+<pre class="r"><code>glmm_2_brms_s3 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;sz_count&quot;, prior_b = &quot;normal(0,1)&quot;, prior_sd = NULL)</code></pre>
+<pre class="r"><code>fit_brms_allcohort(glmm_2_brms_s3)</code></pre>
+<div id="bayesian-glmm-brms-22" class="section level3">
+<h3>Bayesian GLMM (brms)</h3>
+<div id="fixed-effects-31" class="section level5">
+<h5>Fixed Effects</h5>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Term</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+<th align="center">Sig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Intercept</td>
+<td align="center">-0.5611</td>
+<td align="center">0.4608</td>
+<td align="center">-1.446</td>
+<td align="center">0.4308</td>
+<td align="center">1.001</td>
+<td align="center">1862</td>
+<td align="center">1740</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">epitypeGGE</td>
+<td align="center">0.05661</td>
+<td align="center">0.1334</td>
+<td align="center">-0.1992</td>
+<td align="center">0.3108</td>
+<td align="center">1.002</td>
+<td align="center">3027</td>
+<td align="center">2804</td>
+<td align="center"></td>
+</tr>
+<tr class="odd">
+<td align="center">epitypeOther</td>
+<td align="center">0.2922</td>
+<td align="center">0.2086</td>
+<td align="center">-0.1248</td>
+<td align="center">0.6954</td>
+<td align="center">1.001</td>
+<td align="center">2926</td>
+<td align="center">2728</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">age</td>
+<td align="center">-0.03742</td>
+<td align="center">0.004274</td>
+<td align="center">-0.04584</td>
+<td align="center">-0.02926</td>
+<td align="center">1.001</td>
+<td align="center">4000</td>
+<td align="center">3295</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">age_onset</td>
+<td align="center">0.06755</td>
+<td align="center">0.007804</td>
+<td align="center">0.05241</td>
+<td align="center">0.08296</td>
+<td align="center">1</td>
+<td align="center">4865</td>
+<td align="center">3022</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="random-effects---cohort-10" class="section level5">
+<h5>Random Effects - Cohort</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">0.6854</td>
+<td align="center">0.6604</td>
+<td align="center">0.09823</td>
+<td align="center">2.658</td>
+<td align="center">1.004</td>
+<td align="center">799.3</td>
+<td align="center">551.1</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the cohort random effect had estimate and
+95% credible interval = 0.685 (0.098, 2.658). Credible intervals that
+are further from 0 are stronger evidence for clustering by cohort.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">0.6854</td>
+<td align="center">0.6604</td>
+<td align="center">0.09823</td>
+<td align="center">2.658</td>
+<td align="center">1.101</td>
+<td align="center">0.5241</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- cohort) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - cohort) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+</div>
+<div id="random-effects---family-10" class="section level5">
+<h5>Random Effects - Family</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">0.9221</td>
+<td align="center">0.1254</td>
+<td align="center">0.6608</td>
+<td align="center">1.174</td>
+<td align="center">1.003</td>
+<td align="center">928</td>
+<td align="center">1652</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the family random effect had estimate and
+95% credible interval = 0.922 (0.661, 1.174). Credible intervals that
+are further from 0 are stronger evidence for clustering by family.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">0.9221</td>
+<td align="center">0.1254</td>
+<td align="center">0.6608</td>
+<td align="center">1.174</td>
+<td align="center">4.882e-16</td>
+<td align="center">4.882e-16</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- family) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - family) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+<p>The ICC estimate and 95% credible intervals were 0.10191 (0.00233,
+0.63046) for cohort and 0.18445 (0.10405, 0.32847) for family.</p>
+</div>
+</div>
+</div>
+<div id="outcome-treatment-response-4" class="section level2 tabset">
+<h2 class="tabset">Outcome = Treatment Response</h2>
+<pre class="r"><code>glmm_3_brms_s3 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;tx_resp&quot;, prior_b = &quot;normal(0,1)&quot;, prior_sd = NULL)</code></pre>
+<pre class="r"><code>fit_brms_allcohort(glmm_3_brms_s3)</code></pre>
+<div id="bayesian-glmm-brms-23" class="section level3">
+<h3>Bayesian GLMM (brms)</h3>
+<div id="fixed-effects-32" class="section level5">
+<h5>Fixed Effects</h5>
+<table>
+<colgroup>
+<col width="15%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Term</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+<th align="center">Sig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Intercept</td>
+<td align="center">-0.4568</td>
+<td align="center">1.086</td>
+<td align="center">-2.773</td>
+<td align="center">1.822</td>
+<td align="center">1.003</td>
+<td align="center">2110</td>
+<td align="center">2061</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">epitypeGGE</td>
+<td align="center">0.06371</td>
+<td align="center">0.1816</td>
+<td align="center">-0.2882</td>
+<td align="center">0.4104</td>
+<td align="center">1.002</td>
+<td align="center">3095</td>
+<td align="center">3219</td>
+<td align="center"></td>
+</tr>
+<tr class="odd">
+<td align="center">epitypeOther</td>
+<td align="center">0.3765</td>
+<td align="center">0.321</td>
+<td align="center">-0.2532</td>
+<td align="center">1.021</td>
+<td align="center">1.001</td>
+<td align="center">3366</td>
+<td align="center">2741</td>
+<td align="center"></td>
+</tr>
+<tr class="even">
+<td align="center">age</td>
+<td align="center">0.04218</td>
+<td align="center">0.006029</td>
+<td align="center">0.03065</td>
+<td align="center">0.05427</td>
+<td align="center">1.002</td>
+<td align="center">2834</td>
+<td align="center">2743</td>
+<td align="center">*</td>
+</tr>
+<tr class="odd">
+<td align="center">age_onset</td>
+<td align="center">-0.04742</td>
+<td align="center">0.01071</td>
+<td align="center">-0.06852</td>
+<td align="center">-0.02701</td>
+<td align="center">1.001</td>
+<td align="center">3133</td>
+<td align="center">3017</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="random-effects---cohort-11" class="section level5">
+<h5>Random Effects - Cohort</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="7%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">1.667</td>
+<td align="center">1.149</td>
+<td align="center">0.3974</td>
+<td align="center">4.638</td>
+<td align="center">1</td>
+<td align="center">2057</td>
+<td align="center">2262</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the cohort random effect had estimate and
+95% credible interval = 1.667 (0.397, 4.638). Credible intervals that
+are further from 0 are stronger evidence for clustering by cohort.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">1.667</td>
+<td align="center">1.149</td>
+<td align="center">0.3974</td>
+<td align="center">4.638</td>
+<td align="center">0.06816</td>
+<td align="center">0.06381</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- cohort) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - cohort) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+</div>
+<div id="random-effects---family-11" class="section level5">
+<h5>Random Effects - Family</h5>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="8%" />
+<col width="11%" />
+<col width="11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center"> </th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">l-95% CI</th>
+<th align="center">u-95% CI</th>
+<th align="center">Rhat</th>
+<th align="center">Bulk_ESS</th>
+<th align="center">Tail_ESS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center"><strong>sd(Intercept)</strong></td>
+<td align="center">1.37</td>
+<td align="center">0.1718</td>
+<td align="center">1.041</td>
+<td align="center">1.714</td>
+<td align="center">1.008</td>
+<td align="center">1012</td>
+<td align="center">1829</td>
+</tr>
+</tbody>
+</table>
+<p>The standard deviation of the family random effect had estimate and
+95% credible interval = 1.37 (1.041, 1.714). Credible intervals that are
+further from 0 are stronger evidence for clustering by family.</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="11%" />
+<col width="12%" />
+<col width="11%" />
+<col width="11%" />
+<col width="13%" />
+<col width="12%" />
+<col width="7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">Hypothesis</th>
+<th align="center">Estimate</th>
+<th align="center">Est.Error</th>
+<th align="center">CI.Lower</th>
+<th align="center">CI.Upper</th>
+<th align="center">Evid.Ratio</th>
+<th align="center">Post.Prob</th>
+<th align="center">Star</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">(Intercept) = 0</td>
+<td align="center">1.37</td>
+<td align="center">0.1718</td>
+<td align="center">1.041</td>
+<td align="center">1.714</td>
+<td align="center">1.489e-31</td>
+<td align="center">1.489e-31</td>
+<td align="center">*</td>
+</tr>
+</tbody>
+</table>
+<p>Note: evidence ratios &gt; 1 indicate more evidence for sd(Intercept
+- family) = 0 after seeing the data; evidence ratios &lt; 1 indicate
+less evidence for sd(Intercept - family) = 0 after seeing the data. The
+evidence ratio is the ratio between the posterior density at that point
+divided by the prior density at that point.</p>
+<p>The ICC estimate and 95% credible intervals were 0.34976 (0.02966,
+0.80637) for cohort and 0.23615 (0.1516, 0.41075) for family.</p>
 </div>
 </div>
 </div>
