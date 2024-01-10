@@ -11,7 +11,7 @@
 
 <meta name="author" content="Danni Tu and Quy Cao" />
 
-<meta name="date" content="2024-01-09" />
+<meta name="date" content="2024-01-10" />
 
 <title>Supplemental Results</title>
 
@@ -1603,7 +1603,7 @@ border-radius: 0px;
 
 <h1 class="title toc-ignore">Supplemental Results</h1>
 <h4 class="author">Danni Tu and Quy Cao</h4>
-<h4 class="date">January 09, 2024</h4>
+<h4 class="date">January 10, 2024</h4>
 
 </div>
 
@@ -1903,9 +1903,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <h3>EPGP</h3>
 <pre class="r"><code>glmm_2_brms &lt;- fit_brms_percohort_inner(dat, the_outcome = &quot;remission_10&quot;, the_cohort = &quot;epgp&quot;)</code></pre>
 <pre class="r"><code>fit_brms_percohort(glmm_2_brms)</code></pre>
-<pre><code>## Warning: There were 1 divergent transitions after warmup. Increasing adapt_delta
-## above 0.85 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: remission_10 ~ epitype + age + age_onset + (1 | fid) 
@@ -1929,11 +1926,8 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 1 divergent transitions after warmup. Increasing adapt_delta
-## above 0.85 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC = 0.083 (0.000, 0.262).  
+##   
+## ICC = 0.083 (0.000, 0.262).  
 ##   
 ## Bayes Factor =  0.44  
 ## </code></pre>
@@ -2089,9 +2083,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <h3>EPGP</h3>
 <pre class="r"><code>glmm_2_brms &lt;- fit_brms_percohort_inner(dat, the_outcome = &quot;remission_5&quot;, the_cohort = &quot;epgp&quot;)</code></pre>
 <pre class="r"><code>fit_brms_percohort(glmm_2_brms)</code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.85 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: remission_5 ~ epitype + age + age_onset + (1 | fid) 
@@ -2115,11 +2106,8 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.85 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC = 0.060 (0.000, 0.197).  
+##   
+## ICC = 0.060 (0.000, 0.197).  
 ##   
 ## Bayes Factor =  0.36  
 ## </code></pre>
@@ -2196,9 +2184,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <h3>Meta-Analysis</h3>
 <pre class="r"><code>glmm_all_brms &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;remission_5&quot;)</code></pre>
 <pre class="r"><code>fit_brms_allcohort(glmm_all_brms)</code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: remission_5 ~ epitype + age + age_onset + (1 | cohort/fid) 
@@ -2227,16 +2212,10 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC (Cohort) = 0.320 (0.068, 0.727)  
-## </code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC (Family) =  0.061 (0.011, 0.139)  
+##   
+## ICC (Cohort) = 0.320 (0.068, 0.727)  
+##   
+## ICC (Family) =  0.061 (0.011, 0.139)  
 ##   
 ## Bayes Factor (Cohort) =  5564.89  
 ##   
@@ -2385,9 +2364,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <h3>Meta-Analysis</h3>
 <pre class="r"><code>glmm_all_brms &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;remission_2&quot;)</code></pre>
 <pre class="r"><code>fit_brms_allcohort(glmm_all_brms)</code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: remission_2 ~ epitype + age + age_onset + (1 | cohort/fid) 
@@ -2416,16 +2392,10 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC (Cohort) = 0.322 (0.070, 0.733)  
-## </code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC (Family) =  0.108 (0.065, 0.177)  
+##   
+## ICC (Cohort) = 0.322 (0.070, 0.733)  
+##   
+## ICC (Family) =  0.108 (0.065, 0.177)  
 ##   
 ## Bayes Factor (Cohort) =  1830.60  
 ##   
@@ -2540,9 +2510,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <h3>Meta-Analysis</h3>
 <pre class="r"><code>glmm_all_brms &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;sz_count2&quot;)</code></pre>
 <pre class="r"><code>fit_brms_allcohort(glmm_all_brms)</code></pre>
-<pre><code>## Warning: There were 35 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: sz_count2 ~ epitype + age + age_onset + (1 | cohort/fid) 
@@ -2571,16 +2538,10 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 35 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Cohort) = 0.063 (0.001, 0.469)  
-## </code></pre>
-<pre><code>## Warning: There were 35 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Family) =  0.264 (0.200, 0.398)  
+##   
+## ICC (Cohort) = 0.063 (0.001, 0.469)  
+##   
+## ICC (Family) =  0.264 (0.200, 0.398)  
 ##   
 ## Bayes Factor (Cohort) =  0.47  
 ##   
@@ -2594,9 +2555,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <code>student_t(3, 0, 2.5)</code>.</p>
 <pre class="r"><code>glmm_all_brms_s1 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;sz_count2&quot;, prior_b = NULL, prior_sd = &quot;cauchy(0,1)&quot;)</code></pre>
 <pre class="r"><code>fit_brms_allcohort(glmm_all_brms_s1)</code></pre>
-<pre><code>## Warning: There were 43 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: sz_count2 ~ epitype + age + age_onset + (1 | cohort/fid) 
@@ -2625,16 +2583,10 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 43 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Cohort) = 0.052 (0.000, 0.409)  
-## </code></pre>
-<pre><code>## Warning: There were 43 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Family) =  0.263 (0.197, 0.396)  
+##   
+## ICC (Cohort) = 0.052 (0.000, 0.409)  
+##   
+## ICC (Family) =  0.263 (0.197, 0.396)  
 ##   
 ## Bayes Factor (Cohort) =  0.37  
 ##   
@@ -2648,9 +2600,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <code>student_t(3, 0, 2.5)</code>.</p>
 <pre class="r"><code>glmm_all_brms_s2 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;sz_count2&quot;, prior_b = NULL, prior_sd = &quot;normal(0,1)&quot;)</code></pre>
 <pre class="r"><code>fit_brms_allcohort(glmm_all_brms_s2)</code></pre>
-<pre><code>## Warning: There were 39 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: sz_count2 ~ epitype + age + age_onset + (1 | cohort/fid) 
@@ -2679,16 +2628,10 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 39 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Cohort) = 0.059 (0.000, 0.467)  
-## </code></pre>
-<pre><code>## Warning: There were 39 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Family) =  0.261 (0.195, 0.394)  
+##   
+## ICC (Cohort) = 0.059 (0.000, 0.467)  
+##   
+## ICC (Family) =  0.261 (0.195, 0.394)  
 ##   
 ## Bayes Factor (Cohort) =  0.34  
 ##   
@@ -2701,9 +2644,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <code>normal(0,1)</code> instead of the default flat prior.</p>
 <pre class="r"><code>glmm_all_brms_s3 &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;sz_count2&quot;, prior_b = &quot;normal(0,1)&quot;, prior_sd = NULL)</code></pre>
 <pre class="r"><code>fit_brms_allcohort(glmm_all_brms_s3)</code></pre>
-<pre><code>## Warning: There were 140 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: sz_count2 ~ epitype + age + age_onset + (1 | cohort/fid) 
@@ -2732,16 +2672,10 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 140 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Cohort) = 0.065 (0.000, 0.583)  
-## </code></pre>
-<pre><code>## Warning: There were 140 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Family) =  0.260 (0.194, 0.390)  
+##   
+## ICC (Cohort) = 0.065 (0.000, 0.583)  
+##   
+## ICC (Family) =  0.260 (0.194, 0.390)  
 ##   
 ## Bayes Factor (Cohort) =  0.31  
 ##   
@@ -2822,9 +2756,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <h3>Meta-Analysis</h3>
 <pre class="r"><code>glmm_all_brms &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;txresp_1&quot;)</code></pre>
 <pre class="r"><code>fit_brms_allcohort(glmm_all_brms)</code></pre>
-<pre><code>## Warning: There were 1 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: txresp_1 ~ epitype + age + age_onset + (1 | cohort/fid) 
@@ -2853,16 +2784,10 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 1 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC (Cohort) = 0.515 (0.083, 0.882)  
-## </code></pre>
-<pre><code>## Warning: There were 1 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC (Family) =  0.069 (0.001, 0.231)  
+##   
+## ICC (Cohort) = 0.515 (0.083, 0.882)  
+##   
+## ICC (Family) =  0.069 (0.001, 0.231)  
 ##   
 ## Bayes Factor (Cohort) =  67.60  
 ##   
@@ -2943,9 +2868,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <h3>Meta-Analysis</h3>
 <pre class="r"><code>glmm_all_brms &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;txresp_2&quot;)</code></pre>
 <pre class="r"><code>fit_brms_allcohort(glmm_all_brms)</code></pre>
-<pre><code>## Warning: There were 130 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: txresp_2 ~ epitype + age + age_onset + (1 | cohort/fid) 
@@ -2974,16 +2896,10 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 130 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Cohort) = 0.640 (0.069, 0.969)  
-## </code></pre>
-<pre><code>## Warning: There were 130 divergent transitions after warmup. Increasing
-## adapt_delta above 0.95 may help. See http://mc-stan.org/misc/
-## warnings.html#divergent-transitions-after-warmup</code></pre>
-<pre><code>## ICC (Family) =  0.016 (0.000, 0.099)  
+##   
+## ICC (Cohort) = 0.640 (0.069, 0.969)  
+##   
+## ICC (Family) =  0.016 (0.000, 0.099)  
 ##   
 ## Bayes Factor (Cohort) =  14.97  
 ##   
@@ -3031,9 +2947,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <h3>EPGP</h3>
 <pre class="r"><code>glmm_2_brms &lt;- fit_brms_percohort_inner(dat, the_outcome = &quot;txresp_3&quot;, the_cohort = &quot;epgp&quot;)</code></pre>
 <pre class="r"><code>fit_brms_percohort(glmm_2_brms)</code></pre>
-<pre><code>## Warning: There were 1 divergent transitions after warmup. Increasing adapt_delta
-## above 0.85 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: txresp_3 ~ epitype + age + age_onset + (1 | fid) 
@@ -3057,11 +2970,8 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 1 divergent transitions after warmup. Increasing adapt_delta
-## above 0.85 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC = 0.068 (0.000, 0.286).  
+##   
+## ICC = 0.068 (0.000, 0.286).  
 ##   
 ## Bayes Factor =  0.29  
 ## </code></pre>
@@ -3070,9 +2980,6 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 <h3>Meta-Analysis</h3>
 <pre class="r"><code>glmm_all_brms &lt;- fit_brms_allcohort_inner(dat, the_outcome = &quot;txresp_3&quot;)</code></pre>
 <pre class="r"><code>fit_brms_allcohort(glmm_all_brms)</code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
 <pre><code>##  Family: bernoulli 
 ##   Links: mu = logit 
 ## Formula: txresp_3 ~ epitype + age + age_onset + (1 | cohort/fid) 
@@ -3101,16 +3008,10 @@ fit_brms_allcohort &lt;- function(fit_brms_allcohort_obj){
 ## and Tail_ESS are effective sample size measures, and Rhat is the potential
 ## scale reduction factor on split chains (at convergence, Rhat = 1).
 ##   
-## </code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC (Cohort) = 0.501 (0.043, 0.902)  
-## </code></pre>
-<pre><code>## Warning: There were 6 divergent transitions after warmup. Increasing adapt_delta
-## above 0.95 may help. See http://mc-stan.org/misc/warnings.html#divergent-
-## transitions-after-warmup</code></pre>
-<pre><code>## ICC (Family) =  0.013 (0.000, 0.099)  
+##   
+## ICC (Cohort) = 0.501 (0.043, 0.902)  
+##   
+## ICC (Family) =  0.013 (0.000, 0.099)  
 ##   
 ## Bayes Factor (Cohort) =  6.91  
 ##   
