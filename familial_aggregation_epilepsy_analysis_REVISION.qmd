@@ -1,0 +1,660 @@
+---
+title: "Supplemental Results"
+output-file: index2.html
+author: "Danni Tu and Quy Cao"
+date: last-modified
+format:
+  html:
+    toc: true
+    theme: cosmo
+    code-fold: true
+---
+
+**Familial aggregation of seizure outcomes in four familial epilepsy cohorts**
+
+Colin A. Ellis, MD, Danni Tu, PhD, Karen L. Oliver, MSc, Heather C. Mefford, MD, PhD, W. Allen Hauser, MD, Jeffrey Buchhalter, MD, PhD, Michael P. Epstein, PhD, Quy Cao, PhD, EPGP Consortium, EpiK Consortium, Samuel F. Berkovic, MD, Ruth Ottman, PhD
+
+```{r}
+#| include: false
+
+# Packages
+library(brms) # Bayesian GLMM models
+library(data.table)
+library(pander)
+library(tidyverse)
+
+# Read in full data
+dat <- read_csv("merged_data_v6.csv")
+
+# RMarkdown formatting 
+nl <- function(){
+  cat("  \n")
+  cat("  \n")
+}
+
+pt <- function(x){
+  pandoc.table(x, split.table = Inf)
+}
+
+# Save brms output to a subdirectory called BRMS
+# Set these to "always" when fitting a new model object, "never" when reading from BRMS
+if (!dir.exists("BRMS")) dir.create("BRMS")
+refit_percohort = "never"
+refit_allcohort = "never"
+```
+
+ The data frame `dat` contains the following columns:
+
+- Grouping variables
+  - **cohort**: categorical variable with values: efscu, epgp, epi4k, rep
+  - **fid**: family ID
+  - **iid**: person ID
+- Predictors
+  - **epitype**: categorical variable with values: Focal, GGE, Other
+  - **age**: numerical variable in years
+  - **age_onset**: numerical variable in years
+- Outcomes
+  - **remission_5**: binary variable with values 0 or 1
+  - **remission_2**: binary variable with values 0 or 1
+  - **remission_10**: binary variable with values 0 or 1
+  - **sz_count2**: binary variable with values 0 or 1
+  - **txresp_1**: binary variable with values 0 or 1
+  - **txresp_2**: binary variable with values 0 or 1
+  - **txresp_3**: binary variable with values 0 or 1
+
+To assess if binary epilepsy outcomes (remission, number of seizures, treatment response) are significantly aggregated in families, we modeled between-family variation using a generalized linear mixed model (GLMM) framework, with age, age of epilepsy onset, and epitype as the fixed effects and family-specific random intercepts.
+
+Testing for significant aggregation of epilepsy outcomes is equivalent to testing whether the variance of the family-specific random intercept is zero in the GLMM (Zhang & Lin, 2008; Self & Liang, 1987). 
+
+Our model (clustered by `fid`) is the following generalized linear mixed model:
+
+`outcome ~ epitype +  age + age_onset + (1|fid)`.
+
+This model assumes a random intercept for each family. To test if familial aggregation is significant, we test the variance of this random intercept.
+
+```{r}
+round2 <- function(x, n){
+  format(round(x,n), nsmall = n)
+}
+
+fit_brms_percohort_inner <- function(dat, the_outcome, the_cohort){
+  stopifnot(the_outcome %in% c("remission_10", "remission_5", "remission_2", "sz_count2", 
+                               "txresp_1", "txresp_2", "txresp_3"))
+  stopifnot(the_cohort %in% c("efscu", "epgp", "epi4k", "rep"))
+  
+  # For the selected outcome and cohort, filter to families larger than 1
+  dat2 = dat %>%
+    select(cohort, fid, iid, epitype, age, age_onset, !!sym(the_outcome)) %>%
+    filter(complete.cases(.),
+           cohort == the_cohort) %>%
+    group_by(fid) %>%
+    filter(n_distinct(iid) > 1) %>% ungroup %>%
+    mutate(fid = factor(as.character(fid)))
+  
+  if (nrow(dat2) == 0){
+    return(NULL)
+  }
+  
+  # Model formulae
+  form = paste0(the_outcome, " ~ epitype + age + age_onset + (1|fid)") # GLMM model
+  
+  # Bayesian GLMM model with clustering by family
+  fit_glmm_brms = brms::brm(formula = as.formula(form),
+                            data = dat2,
+                            family = bernoulli,
+                            warmup = 1000, iter = 2000, chains = 4,
+                            # Increase to prevent divergent chains
+                            control = list(adapt_delta = 0.85),
+                            sample_prior = "yes",
+                            # Suppress error messages
+                            # silent = 2,
+                            # refresh = 0
+                            seed = 123123123,
+                            save_model = paste0("BRMS/", the_cohort, "/", the_outcome, "_full.RDS"),
+                            file = paste0("BRMS/", the_cohort, "/", the_outcome, "_full"),
+                            file_refit = refit_allcohort)
+
+  
+  return(fit_glmm_brms = fit_glmm_brms)
+}
+
+# From a brms model, get the ICC. Slightly adapted from performance::icc()
+get_icc1 <- function(model){
+  random_effects = summary(model)$random
+  
+  # Point estimate of ICC using point estimate of sd(Intercept)
+  icc = (random_effects$fid$Estimate^2) / (random_effects$fid$Estimate^2 + pi^2/3)
+  
+  # 2.5th percentile
+  icc_2p5 = (random_effects$fid$`l-95% CI`^2) / (random_effects$fid$`l-95% CI`^2 + pi^2/3)
+  
+  # 97.5th percentile
+  icc_97p5 = (random_effects$fid$`u-95% CI`^2) / (random_effects$fid$`u-95% CI`^2 + pi^2/3)
+  
+  return(list(icc = icc,
+         icc_2p5 = icc_2p5,
+         icc_97p5 = icc_97p5,
+         icc_formatted = paste0(round2(icc, 3), " (", round2(icc_2p5, 3), ", ", round2(icc_97p5, 3), ")")))
+}
+
+
+fit_brms_percohort  <- function(fit_glmm_brms_out){
+
+  if (is.null(fit_glmm_brms_out)){
+    nl()
+    cat(paste0("There was no data for this outcome and this cohort."))
+    nl()
+    return(NULL)
+  }
+  
+  # Model Summary
+  fit_glmm_brms = fit_glmm_brms_out
+  print(fit_glmm_brms)
+  nl()
+  
+  # ICC
+  cat(paste0("ICC = ", get_icc1(fit_glmm_brms)$icc_formatted, "."))
+  nl()
+  
+  # Bayes factor
+  cat("Bayes Factor = ", round2(1/hypothesis(x = fit_glmm_brms, hypothesis = "Intercept = 0", class = "sd", group = "fid")$hypothesis$Evid.Ratio, 2))
+  nl()
+}
+
+# prior_b, prior_sd: priors for the fixed effects and grouping variables
+fit_brms_allcohort_inner <- function(dat, the_outcome, prior_b = NULL, prior_sd = NULL){
+  
+  stopifnot(the_outcome %in% c("remission_10", "remission_5", "remission_2", "sz_count2", 
+                               "txresp_1", "txresp_2", "txresp_3"))
+  # For the selected outcome, filter to families larger than 1
+  dat2 = dat %>%
+    select(cohort, fid, iid, epitype, age, age_onset, !!sym(the_outcome)) %>%
+    filter(complete.cases(.)) %>%
+    group_by(fid) %>%
+    filter(n_distinct(iid) > 1) %>% ungroup %>%
+    mutate(fid = factor(as.character(fid)))
+  
+  if (nrow(dat2) == 0){
+    nl()
+    cat(paste0("There was no data for outcome = ", the_outcome))
+    nl()
+    return(nl())
+  }
+  
+  # Formulae
+  form = paste0(the_outcome, " ~ epitype + age + age_onset + (1|cohort/fid)") # GLMM model
+  
+  # Set the priors for the fixed effects and grouping variable
+  if (is.null(prior_b) & is.null(prior_sd)){
+    the_prior <- NULL
+    the_fname = paste0("BRMS/all_cohorts/", the_outcome, "_full")
+  } else if (is.null(prior_b) & (!is.null(prior_sd))) {
+    the_prior <- set_prior(prior = prior_sd, class = "sd", group = "cohort:fid")
+    prior_str = paste0("sd-", gsub("[[:punct:]]", "", prior_sd))
+    the_fname = paste0("BRMS/all_cohorts/", the_outcome, "_full_", prior_str)
+  } else if (is.null(prior_sd) & (!is.null(prior_b))) {
+    the_prior <- set_prior(prior = prior_b, class = "b")
+    prior_str = paste0("b-", gsub("[[:punct:]]", "", prior_b))
+    the_fname = paste0("BRMS/all_cohorts/", the_outcome, "_full_", prior_str)
+  } else {
+    the_prior <- c(set_prior(prior = prior_b, class = "b"),
+      set_prior(prior = prior_sd, class = "sd", group = "cohort:fid"))
+    prior_str = paste0("b-", gsub("[[:punct:]]", "", prior_b), "_",
+                       "sd-", gsub("[[:punct:]]", "", prior_sd))
+    the_fname = paste0("BRMS/all_cohorts/", the_outcome, "_full_", prior_str)
+  }
+  
+  # GLMM model with clustering by family
+    fit_brms = brms::brm(formula = as.formula(form),
+                       data = dat2,
+                       family = bernoulli,
+                       warmup = 1000, iter = 2000, chains = 4,
+                       # Increase to prevent divergent chains
+                       control = list(adapt_delta = 0.95),
+                       sample_prior = "yes",
+                       # Set the priors for the fixed effects and grouping variable
+                       prior = the_prior,
+                       # Suppress error messages
+                       # silent = 2,
+                       # refresh = 0,
+                       save_model = paste0(the_fname, ".RDS"),
+                       file = the_fname,
+                       file_refit = refit_allcohort)
+ 
+  return(fit_brms)
+}
+
+get_icc2 <- function(model){
+  re = summary(model)$random
+  
+  # Cohort effects, given the family random effect
+  icc_cohort = (re$cohort$Estimate^2) / (re$cohort$Estimate^2 + re$`cohort:fid`$Estimate^2 + pi^2/3)
+  
+  # 2.5th percentile
+  icc_cohort_2p5 = (re$cohort$`l-95% CI`^2) / (re$cohort$`l-95% CI`^2 + re$`cohort:fid`$Estimate^2  + pi^2/3)
+  
+  # 97.5th percentile
+  icc_cohort_97p5 = (re$cohort$`u-95% CI`^2) / (re$cohort$`u-95% CI`^2 + re$`cohort:fid`$Estimate^2  + pi^2/3)
+  
+  # Family effects, given the cohort random effect
+  icc_fam = (re$`cohort:fid`$Estimate^2) / (re$`cohort:fid`$Estimate^2 + re$cohort$Estimate^2 + pi^2/3)
+  
+  # 2.5th percentile
+  icc_fam_2p5 = (re$`cohort:fid`$`l-95% CI`^2) / (re$`cohort:fid`$`l-95% CI`^2 + re$cohort$Estimate^2 + pi^2/3)
+  
+  # 97.5th percentile
+  icc_fam_97p5 = (re$`cohort:fid`$`u-95% CI`^2) / (re$`cohort:fid`$`l-95% CI`^2 + re$cohort$Estimate^2 + pi^2/3)
+  
+  return(list(icc_cohort = icc_cohort,
+         icc_cohort_2p5 = icc_cohort_2p5,
+         icc_cohort_97p5 = icc_cohort_97p5,
+         icc_cohort_formatted = paste0(round2(icc_cohort, 3), " (", round2(icc_cohort_2p5, 3), ", ", round2(icc_cohort_97p5, 3), ")"),
+         icc_fam = icc_fam,
+         icc_fam_2p5 = icc_fam_2p5,
+         icc_fam_97p5 = icc_fam_97p5,
+         icc_fam_formatted = paste0(round2(icc_fam,3), " (", round2(icc_fam_2p5, 3), ", ", round2(icc_fam_97p5, 3), ")")))
+}
+
+fit_brms_allcohort <- function(fit_brms_allcohort_obj){
+  
+  fit_brms = fit_brms_allcohort_obj
+  
+  # Print results
+  print(fit_brms)
+  nl()
+  
+  # ICC
+  cat("ICC (Cohort) =", get_icc2(fit_brms)$icc_cohort_formatted)
+  nl()
+  cat("ICC (Family) = ", get_icc2(fit_brms)$icc_fam_formatted)
+  nl()
+    
+  # Bayes Factor
+  cat("Bayes Factor (Cohort) = ", round2(1/hypothesis(x = fit_brms, hypothesis = "Intercept = 0", class = "sd", group = "cohort")$hypothesis$Evid.Ratio, 2))
+  nl()
+  cat("Bayes Factor (Family) = ", round2(1/hypothesis(x = fit_brms, hypothesis = "Intercept = 0", class = "sd", group = "cohort:fid")$hypothesis$Evid.Ratio, 2))
+  nl()
+  
+  
+}
+```
+
+## Outcome = Remission (10 year) 
+
+::: {.panel-tabset}
+
+### EFSCU 
+
+```{r}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_10", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+
+### EPGP 
+
+```{r}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_10", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+### Epi4k 
+
+
+```{r}
+glmm_3_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_10", the_cohort = "epi4k")
+```
+
+```{r}
+fit_brms_percohort(glmm_3_brms)
+```
+
+### Rochester 
+
+```{r}
+glmm_4_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_10", the_cohort = "rep")
+```
+
+```{r}
+fit_brms_percohort(glmm_4_brms)
+```
+
+### Meta-Analysis
+
+```{r}
+glmm_all_brms <- fit_brms_allcohort_inner(dat, the_outcome = "remission_10")
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms)
+```
+
+:::
+
+
+
+
+## Outcome = Remission (5 year) 
+
+::: {.panel-tabset}
+
+### EFSCU 
+
+```{r}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_5", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+
+### EPGP 
+
+```{r}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_5", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+### Epi4k 
+
+
+```{r}
+glmm_3_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_5", the_cohort = "epi4k")
+```
+
+```{r}
+fit_brms_percohort(glmm_3_brms)
+```
+
+### Rochester 
+
+```{r}
+glmm_4_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_5", the_cohort = "rep")
+```
+
+```{r}
+fit_brms_percohort(glmm_4_brms)
+```
+
+### Meta-Analysis
+
+```{r}
+glmm_all_brms <- fit_brms_allcohort_inner(dat, the_outcome = "remission_5")
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms)
+```
+
+
+
+
+:::
+
+## Outcome = Remission (2 year) 
+
+::: {.panel-tabset}
+
+### EFSCU 
+
+```{r}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_2", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+
+### EPGP 
+
+```{r}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_2", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+### Epi4k 
+
+
+```{r}
+glmm_3_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_2", the_cohort = "epi4k")
+```
+
+```{r}
+fit_brms_percohort(glmm_3_brms)
+```
+
+### Rochester 
+
+```{r}
+glmm_4_brms <- fit_brms_percohort_inner(dat, the_outcome = "remission_2", the_cohort = "rep")
+```
+
+```{r}
+fit_brms_percohort(glmm_4_brms)
+```
+
+### Meta-Analysis
+
+```{r}
+glmm_all_brms <- fit_brms_allcohort_inner(dat, the_outcome = "remission_2")
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms)
+```
+
+:::
+
+## Outcome = Seizure Count
+
+::: {.panel-tabset}
+
+### EFSCU 
+
+```{r}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "sz_count2", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+
+### EPGP 
+
+```{r}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "sz_count2", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+### Epi4k 
+
+
+```{r}
+glmm_3_brms <- fit_brms_percohort_inner(dat, the_outcome = "sz_count2", the_cohort = "epi4k")
+```
+
+```{r}
+fit_brms_percohort(glmm_3_brms)
+```
+
+### Meta-Analysis
+
+```{r}
+glmm_all_brms <- fit_brms_allcohort_inner(dat, the_outcome = "sz_count2")
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms)
+```
+
+
+
+### Sensitivity Analysis 1
+
+In this sensitivity analysis, the prior for the variance component is `cauchy(0,1)` instead of the default `student_t(3, 0, 2.5)`.
+
+```{r results = 'hide', cache = FALSE}
+glmm_all_brms_s1 <- fit_brms_allcohort_inner(dat, the_outcome = "sz_count2", prior_b = NULL, prior_sd = "cauchy(0,1)")
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms_s1)
+```
+
+### Sensitivity Analysis 2
+
+In this sensitivity analysis, the prior for the variance component is `normal(0,1)` instead of the default `student_t(3, 0, 2.5)`.
+
+```{r results = 'hide', cache = FALSE}
+glmm_all_brms_s2 <- fit_brms_allcohort_inner(dat, the_outcome = "sz_count2", prior_b = NULL, prior_sd = "normal(0,1)")
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms_s2)
+```
+
+### Sensitivity Analysis 3
+
+In this sensitivity analysis, the prior for the fixed effects are `normal(0,1)` instead of the default flat prior.
+
+```{r results = 'hide', cache = FALSE}
+glmm_all_brms_s3 <- fit_brms_allcohort_inner(dat, the_outcome = "sz_count2", prior_b = "normal(0,1)", prior_sd = NULL)
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms_s3)
+```
+
+:::
+
+## Outcome = Treatment Response (1-Year)
+
+::: {.panel-tabset}
+
+### EFSCU 
+
+```{r}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "txresp_1", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+
+### EPGP 
+
+```{r}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "txresp_1", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+
+### Meta-Analysis
+
+```{r}
+glmm_all_brms <- fit_brms_allcohort_inner(dat, the_outcome = "txresp_1")
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms)
+```
+
+:::
+
+## Outcome = Treatment Response (2-Year)
+
+::: {.panel-tabset}
+
+### EFSCU 
+
+```{r}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "txresp_2", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+
+### EPGP 
+
+```{r}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "txresp_2", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+
+### Meta-Analysis
+
+```{r}
+glmm_all_brms <- fit_brms_allcohort_inner(dat, the_outcome = "txresp_2")
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms)
+```
+
+:::
+
+## Outcome = Treatment Response (3-Year)
+
+::: {.panel-tabset}
+
+### EFSCU 
+
+```{r}
+glmm_1_brms <- fit_brms_percohort_inner(dat, the_outcome = "txresp_3", the_cohort = "efscu")
+```
+
+```{r}
+fit_brms_percohort(glmm_1_brms)
+```
+
+
+### EPGP 
+
+```{r}
+glmm_2_brms <- fit_brms_percohort_inner(dat, the_outcome = "txresp_3", the_cohort = "epgp")
+```
+
+```{r}
+fit_brms_percohort(glmm_2_brms)
+```
+
+
+### Meta-Analysis
+
+```{r}
+glmm_all_brms <- fit_brms_allcohort_inner(dat, the_outcome = "txresp_3")
+```
+
+```{r}
+fit_brms_allcohort(glmm_all_brms)
+```
+
+:::
