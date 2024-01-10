@@ -1,6 +1,5 @@
 ---
 title: "Supplemental Results"
-output-file: index2.html
 author: "Danni Tu and Quy Cao"
 date: last-modified
 format:
@@ -8,6 +7,9 @@ format:
     toc: true
     theme: cosmo
     code-fold: true
+project:
+  type: website
+  output-dir: docs
 ---
 
 **Familial aggregation of seizure outcomes in four familial epilepsy cohorts**
